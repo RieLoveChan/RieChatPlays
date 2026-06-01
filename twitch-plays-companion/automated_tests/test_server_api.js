@@ -42,6 +42,8 @@ async function runTests() {
     env: { ...process.env, PORT: '8080' },
     stdio: 'pipe'
   });
+  serverProcess.stdout.pipe(process.stdout);
+  serverProcess.stderr.pipe(process.stderr);
 
   // Handle server crash or premature exit
   serverProcess.on('exit', (code) => {
@@ -83,6 +85,66 @@ async function runTests() {
           'Select': 'select, sel',
           'Start': 'start, st',
           'Wait': 'wait, w, espera'
+        },
+        snes: {
+          'Up': 'up, u',
+          'Down': 'down, d',
+          'Left': 'left, l',
+          'Right': 'right, r',
+          'A': 'a',
+          'B': 'b',
+          'X': 'x',
+          'Y': 'y',
+          'L': 'l',
+          'R': 'r',
+          'Select': 'select, sel',
+          'Start': 'start, st',
+          'Wait': 'wait, w'
+        },
+        gba: {
+          'Up': 'up, u',
+          'Down': 'down, d',
+          'Left': 'left, l',
+          'Right': 'right, r',
+          'A': 'a',
+          'B': 'b',
+          'L': 'l',
+          'R': 'r',
+          'Select': 'select, sel',
+          'Start': 'start, st',
+          'Wait': 'wait, w'
+        },
+        genesis: {
+          'Up': 'up, u',
+          'Down': 'down, d',
+          'Left': 'left, l',
+          'Right': 'right, r',
+          'A': 'a',
+          'B': 'b',
+          'C': 'c',
+          'X': 'x',
+          'Y': 'y',
+          'Z': 'z',
+          'Start': 'start, st',
+          'Mode': 'mode, md',
+          'Wait': 'wait, w'
+        },
+        n64: {
+          'Up': 'up, u',
+          'Down': 'down, d',
+          'Left': 'left, l',
+          'Right': 'right, r',
+          'A': 'a',
+          'B': 'b',
+          'L': 'l',
+          'R': 'r',
+          'Z': 'z',
+          'C-Up': 'cup, cu',
+          'C-Down': 'cdown, cd',
+          'C-Left': 'cleft, cl',
+          'C-Right': 'cright, cr',
+          'Start': 'start, st',
+          'Wait': 'wait, w'
         }
       }
     };
@@ -202,6 +264,73 @@ async function runTests() {
     if (statusAfterClear.queueSize !== 0) {
       throw new Error('Queue was not cleared successfully!');
     }
+
+    // 8. Test SNES, GBA, Genesis, and N64 dynamic mapping parsing
+    console.log('\n[TEST 8] Testing unique input parsing for SNES, GBA, Genesis, and N64...');
+    
+    // Switch to SNES and test X, Y, L, R buttons
+    console.log('- Switching console to SNES...');
+    await makeRequest('/api/admin', 'POST', { command: 'console snes' });
+    
+    console.log('- Injecting SNES chat message: "x+y"');
+    await makeRequest('/api/mock_chat', 'POST', { user: 'SnesPlayer', message: 'x+y' });
+    
+    console.log('- Injecting SNES chat message: "l*2"');
+    await makeRequest('/api/mock_chat', 'POST', { user: 'SnesPlayer', message: 'l*2' });
+    
+    // Switch to GBA and test L, R shoulder buttons
+    console.log('- Switching console to GBA...');
+    await makeRequest('/api/admin', 'POST', { command: 'console gba' });
+    
+    console.log('- Injecting GBA chat message: "r"');
+    await makeRequest('/api/mock_chat', 'POST', { user: 'GbaPlayer', message: 'r' });
+    
+    // Switch to Genesis and test C, Z, Mode buttons
+    console.log('- Switching console to Genesis...');
+    await makeRequest('/api/admin', 'POST', { command: 'console genesis' });
+    
+    console.log('- Injecting Genesis chat message: "c+z"');
+    await makeRequest('/api/mock_chat', 'POST', { user: 'SegaPlayer', message: 'c+z' });
+    
+    console.log('- Injecting Genesis chat message: "mode"');
+    await makeRequest('/api/mock_chat', 'POST', { user: 'SegaPlayer', message: 'mode' });
+    
+    // Switch to N64 and test C-Up, Z, Dpad Up buttons
+    console.log('- Switching console to N64...');
+    await makeRequest('/api/admin', 'POST', { command: 'console n64' });
+    
+    console.log('- Injecting N64 chat message: "cup+z"');
+    await makeRequest('/api/mock_chat', 'POST', { user: 'N64Player', message: 'cup+z' });
+    
+    console.log('- Polling queue to verify SNES/GBA/Genesis/N64 button outputs...');
+    
+    const p1 = await makeRequest('/api/poll');
+    console.log(`  Polled 1 (SNES X+Y) -> user: ${p1.user}, buttons: ${JSON.stringify(p1.buttons)}`);
+    if (!p1.buttons['X'] || !p1.buttons['Y']) throw new Error('SNES combo parsing failed!');
+    
+    const p2 = await makeRequest('/api/poll');
+    const p3 = await makeRequest('/api/poll');
+    console.log(`  Polled 2 (SNES L) -> buttons: ${JSON.stringify(p2.buttons)}`);
+    console.log(`  Polled 3 (SNES L) -> buttons: ${JSON.stringify(p3.buttons)}`);
+    if (!p2.buttons['L'] || !p3.buttons['L']) throw new Error('SNES multiplier parsing failed!');
+    
+    const p4 = await makeRequest('/api/poll');
+    console.log(`  Polled 4 (GBA R) -> user: ${p4.user}, buttons: ${JSON.stringify(p4.buttons)}`);
+    if (!p4.buttons['R']) throw new Error('GBA parsing failed!');
+    
+    const p5 = await makeRequest('/api/poll');
+    console.log(`  Polled 5 (Genesis C+Z) -> user: ${p5.user}, buttons: ${JSON.stringify(p5.buttons)}`);
+    if (!p5.buttons['C'] || !p5.buttons['Z']) throw new Error('Genesis combo parsing failed!');
+    
+    const p6 = await makeRequest('/api/poll');
+    console.log(`  Polled 6 (Genesis Mode) -> buttons: ${JSON.stringify(p6.buttons)}`);
+    if (!p6.buttons['Mode']) throw new Error('Genesis Mode parsing failed!');
+    
+    const p7 = await makeRequest('/api/poll');
+    console.log(`  Polled 7 (N64 C-Up+Z) -> user: ${p7.user}, buttons: ${JSON.stringify(p7.buttons)}`);
+    if (!p7.buttons['C-Up'] || !p7.buttons['Z']) throw new Error('N64 C-Up+Z parsing failed!');
+    
+    console.log('✔ All new console systems parsed, polled, and verified successfully!');
 
     console.log('\n====================================================');
     console.log('   🎉 ALL INTEGRATION TESTS PASSED SUCCESSFULLY!    ');

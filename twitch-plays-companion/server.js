@@ -57,6 +57,66 @@ const DEFAULT_CONFIG = {
       'Select': 'select, sel',
       'Start': 'start, st',
       'Wait': 'wait, w'
+    },
+    snes: {
+      'Up': 'up, u',
+      'Down': 'down, d',
+      'Left': 'left, l',
+      'Right': 'right, r',
+      'A': 'a',
+      'B': 'b',
+      'X': 'x',
+      'Y': 'y',
+      'L': 'l',
+      'R': 'r',
+      'Select': 'select, sel',
+      'Start': 'start, st',
+      'Wait': 'wait, w'
+    },
+    gba: {
+      'Up': 'up, u',
+      'Down': 'down, d',
+      'Left': 'left, l',
+      'Right': 'right, r',
+      'A': 'a',
+      'B': 'b',
+      'L': 'l',
+      'R': 'r',
+      'Select': 'select, sel',
+      'Start': 'start, st',
+      'Wait': 'wait, w'
+    },
+    genesis: {
+      'Up': 'up, u',
+      'Down': 'down, d',
+      'Left': 'left, l',
+      'Right': 'right, r',
+      'A': 'a',
+      'B': 'b',
+      'C': 'c',
+      'X': 'x',
+      'Y': 'y',
+      'Z': 'z',
+      'Start': 'start, st',
+      'Mode': 'mode, md',
+      'Wait': 'wait, w'
+    },
+    n64: {
+      'Up': 'up, u',
+      'Down': 'down, d',
+      'Left': 'left, l',
+      'Right': 'right, r',
+      'A': 'a',
+      'B': 'b',
+      'L': 'l',
+      'R': 'r',
+      'Z': 'z',
+      'C-Up': 'cup, cu',
+      'C-Down': 'cdown, cd',
+      'C-Left': 'cleft, cl',
+      'C-Right': 'cright, cr',
+      'Start': 'start, st',
+      'Wait': 'wait, w'
     }
   }
 };
@@ -120,7 +180,11 @@ function loadConfig() {
       if (parsed.buttonMap) {
         config.buttonMap = {
           nes: { ...DEFAULT_CONFIG.buttonMap.nes, ...parsed.buttonMap.nes },
-          gb: { ...DEFAULT_CONFIG.buttonMap.gb, ...parsed.buttonMap.gb }
+          gb: { ...DEFAULT_CONFIG.buttonMap.gb, ...parsed.buttonMap.gb },
+          snes: { ...DEFAULT_CONFIG.buttonMap.snes, ...parsed.buttonMap.snes },
+          gba: { ...DEFAULT_CONFIG.buttonMap.gba, ...parsed.buttonMap.gba },
+          genesis: { ...DEFAULT_CONFIG.buttonMap.genesis, ...parsed.buttonMap.genesis },
+          n64: { ...DEFAULT_CONFIG.buttonMap.n64, ...parsed.buttonMap.n64 }
         };
       }
       console.log('Configuration loaded from disk.');
@@ -140,7 +204,11 @@ function saveConfig(newConfig) {
   try {
     const mergedButtonMap = newConfig.buttonMap ? {
       nes: { ...(config.buttonMap ? config.buttonMap.nes : DEFAULT_CONFIG.buttonMap.nes), ...newConfig.buttonMap.nes },
-      gb: { ...(config.buttonMap ? config.buttonMap.gb : DEFAULT_CONFIG.buttonMap.gb), ...newConfig.buttonMap.gb }
+      gb: { ...(config.buttonMap ? config.buttonMap.gb : DEFAULT_CONFIG.buttonMap.gb), ...newConfig.buttonMap.gb },
+      snes: { ...(config.buttonMap ? config.buttonMap.snes : DEFAULT_CONFIG.buttonMap.snes), ...newConfig.buttonMap.snes },
+      gba: { ...(config.buttonMap ? config.buttonMap.gba : DEFAULT_CONFIG.buttonMap.gba), ...newConfig.buttonMap.gba },
+      genesis: { ...(config.buttonMap ? config.buttonMap.genesis : DEFAULT_CONFIG.buttonMap.genesis), ...newConfig.buttonMap.genesis },
+      n64: { ...(config.buttonMap ? config.buttonMap.n64 : DEFAULT_CONFIG.buttonMap.n64), ...newConfig.buttonMap.n64 }
     } : (config.buttonMap || DEFAULT_CONFIG.buttonMap);
 
     config = { ...config, ...newConfig, buttonMap: mergedButtonMap };
@@ -519,12 +587,12 @@ function processAdminCommand(username, message) {
     case 'console':
       if (args[0]) {
         const consoleType = args[0].toLowerCase();
-        if (consoleType === 'nes' || consoleType === 'gb') {
+        if (consoleType === 'nes' || consoleType === 'gb' || consoleType === 'snes' || consoleType === 'gba' || consoleType === 'genesis' || consoleType === 'n64') {
           config.activeConsole = consoleType;
           saveConfig(config);
           sendFeedbackToTwitch(`Console system set to [ ${consoleType.toUpperCase()} ] by admin @${username}.`);
         } else {
-          sendFeedbackToTwitch(`Invalid console: ${args[0]}. Use 'nes' or 'gb'.`);
+          sendFeedbackToTwitch(`Invalid console: ${args[0]}. Use 'nes', 'gb', 'snes', 'gba', 'genesis', or 'n64'.`);
         }
       }
       return true;

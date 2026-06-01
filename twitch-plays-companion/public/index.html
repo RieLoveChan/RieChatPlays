@@ -242,6 +242,10 @@
             <select id="activeConsole" onchange="updateControllerLayout(this.value)">
               <option value="nes">Nintendo Entertainment System (NES)</option>
               <option value="gb">GameBoy (GB)</option>
+              <option value="snes">Super Nintendo (SNES)</option>
+              <option value="gba">GameBoy Advance (GBA)</option>
+              <option value="genesis">Sega Genesis/MegaDrive</option>
+              <option value="n64">Nintendo 64 (N64)</option>
             </select>
           </div>
         </div>
@@ -431,6 +435,266 @@
         </div>
       </div>
 
+      <!-- Card 5: SNES Controller Mappings -->
+      <div class="glass-card" style="grid-column: span 1;">
+        <div class="card-title">
+          <i data-lucide="gamepad"></i>
+          <h2>SNES Button Mappings</h2>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Configure comma-separated chat trigger words for each SNES emulator button:
+        </p>
+        <div class="mappings-grid">
+          <div class="form-group">
+            <label for="snes-map-Up">Up</label>
+            <input type="text" id="snes-map-Up" placeholder="e.g., up, u">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-Down">Down</label>
+            <input type="text" id="snes-map-Down" placeholder="e.g., down, d">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-Left">Left</label>
+            <input type="text" id="snes-map-Left" placeholder="e.g., left, l">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-Right">Right</label>
+            <input type="text" id="snes-map-Right" placeholder="e.g., right, r">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-A">A Button</label>
+            <input type="text" id="snes-map-A" placeholder="e.g., a">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-B">B Button</label>
+            <input type="text" id="snes-map-B" placeholder="e.g., b">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-X">X Button</label>
+            <input type="text" id="snes-map-X" placeholder="e.g., x">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-Y">Y Button</label>
+            <input type="text" id="snes-map-Y" placeholder="e.g., y">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-L">L Shoulder</label>
+            <input type="text" id="snes-map-L" placeholder="e.g., l">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-R">R Shoulder</label>
+            <input type="text" id="snes-map-R" placeholder="e.g., r">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-Select">Select</label>
+            <input type="text" id="snes-map-Select" placeholder="e.g., select, sel">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-Start">Start</label>
+            <input type="text" id="snes-map-Start" placeholder="e.g., start, st">
+          </div>
+          <div class="form-group">
+            <label for="snes-map-Wait">Wait (Hollow)</label>
+            <input type="text" id="snes-map-Wait" placeholder="e.g., wait, w">
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 6: GameBoy Advance Controller Mappings -->
+      <div class="glass-card" style="grid-column: span 1;">
+        <div class="card-title">
+          <i data-lucide="gamepad-2"></i>
+          <h2>GBA Button Mappings</h2>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Configure comma-separated chat trigger words for each GBA emulator button:
+        </p>
+        <div class="mappings-grid">
+          <div class="form-group">
+            <label for="gba-map-Up">Up</label>
+            <input type="text" id="gba-map-Up" placeholder="e.g., up, u">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-Down">Down</label>
+            <input type="text" id="gba-map-Down" placeholder="e.g., down, d">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-Left">Left</label>
+            <input type="text" id="gba-map-Left" placeholder="e.g., left, l">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-Right">Right</label>
+            <input type="text" id="gba-map-Right" placeholder="e.g., right, r">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-A">A Button</label>
+            <input type="text" id="gba-map-A" placeholder="e.g., a">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-B">B Button</label>
+            <input type="text" id="gba-map-B" placeholder="e.g., b">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-L">L Shoulder</label>
+            <input type="text" id="gba-map-L" placeholder="e.g., l">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-R">R Shoulder</label>
+            <input type="text" id="gba-map-R" placeholder="e.g., r">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-Select">Select</label>
+            <input type="text" id="gba-map-Select" placeholder="e.g., select, sel">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-Start">Start</label>
+            <input type="text" id="gba-map-Start" placeholder="e.g., start, st">
+          </div>
+          <div class="form-group">
+            <label for="gba-map-Wait">Wait (Hollow)</label>
+            <input type="text" id="gba-map-Wait" placeholder="e.g., wait, w">
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 7: Sega Genesis Controller Mappings -->
+      <div class="glass-card" style="grid-column: span 1;">
+        <div class="card-title">
+          <i data-lucide="gamepad-2"></i>
+          <h2>Sega Genesis Button Mappings</h2>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Configure trigger words for each Sega Genesis/MegaDrive emulator button:
+        </p>
+        <div class="mappings-grid">
+          <div class="form-group">
+            <label for="genesis-map-Up">Up</label>
+            <input type="text" id="genesis-map-Up" placeholder="e.g., up, u">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-Down">Down</label>
+            <input type="text" id="genesis-map-Down" placeholder="e.g., down, d">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-Left">Left</label>
+            <input type="text" id="genesis-map-Left" placeholder="e.g., left, l">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-Right">Right</label>
+            <input type="text" id="genesis-map-Right" placeholder="e.g., right, r">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-A">A Button</label>
+            <input type="text" id="genesis-map-A" placeholder="e.g., a">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-B">B Button</label>
+            <input type="text" id="genesis-map-B" placeholder="e.g., b">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-C">C Button</label>
+            <input type="text" id="genesis-map-C" placeholder="e.g., c">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-X">X Button</label>
+            <input type="text" id="genesis-map-X" placeholder="e.g., x">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-Y">Y Button</label>
+            <input type="text" id="genesis-map-Y" placeholder="e.g., y">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-Z">Z Button</label>
+            <input type="text" id="genesis-map-Z" placeholder="e.g., z">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-Start">Start</label>
+            <input type="text" id="genesis-map-Start" placeholder="e.g., start, st">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-Mode">Mode</label>
+            <input type="text" id="genesis-map-Mode" placeholder="e.g., mode, md">
+          </div>
+          <div class="form-group">
+            <label for="genesis-map-Wait">Wait (Hollow)</label>
+            <input type="text" id="genesis-map-Wait" placeholder="e.g., wait, w">
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 8: Nintendo 64 Controller Mappings -->
+      <div class="glass-card" style="grid-column: span 1;">
+        <div class="card-title">
+          <i data-lucide="gamepad-2"></i>
+          <h2>Nintendo 64 Button Mappings</h2>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Configure trigger words for each Nintendo 64 (N64) emulator button:
+        </p>
+        <div class="mappings-grid">
+          <div class="form-group">
+            <label for="n64-map-Up">Dpad Up</label>
+            <input type="text" id="n64-map-Up" placeholder="e.g., up, u">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-Down">Dpad Down</label>
+            <input type="text" id="n64-map-Down" placeholder="e.g., down, d">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-Left">Dpad Left</label>
+            <input type="text" id="n64-map-Left" placeholder="e.g., left, l">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-Right">Dpad Right</label>
+            <input type="text" id="n64-map-Right" placeholder="e.g., right, r">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-A">A Button</label>
+            <input type="text" id="n64-map-A" placeholder="e.g., a">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-B">B Button</label>
+            <input type="text" id="n64-map-B" placeholder="e.g., b">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-L">L Button</label>
+            <input type="text" id="n64-map-L" placeholder="e.g., l">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-R">R Button</label>
+            <input type="text" id="n64-map-R" placeholder="e.g., r">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-Z">Z Trigger</label>
+            <input type="text" id="n64-map-Z" placeholder="e.g., z">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-C-Up">C-Up</label>
+            <input type="text" id="n64-map-C-Up" placeholder="e.g., cup, cu">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-C-Down">C-Down</label>
+            <input type="text" id="n64-map-C-Down" placeholder="e.g., cdown, cd">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-C-Left">C-Left</label>
+            <input type="text" id="n64-map-C-Left" placeholder="e.g., cleft, cl">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-C-Right">C-Right</label>
+            <input type="text" id="n64-map-C-Right" placeholder="e.g., cright, cr">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-Start">Start</label>
+            <input type="text" id="n64-map-Start" placeholder="e.g., start, st">
+          </div>
+          <div class="form-group">
+            <label for="n64-map-Wait">Wait (Hollow)</label>
+            <input type="text" id="n64-map-Wait" placeholder="e.g., wait, w">
+          </div>
+        </div>
+      </div>
+
       <!-- Submit Footer Block -->
       <div style="grid-column: span 2; display: flex; justify-content: flex-end; margin-top: 1rem;">
         <button type="submit" class="btn btn-primary" style="width: auto; padding: 0.85rem 3rem; font-size: 1.05rem;">
@@ -464,10 +728,10 @@
       buttonChart = new Chart(ctxBtn, {
         type: 'bar',
         data: {
-          labels: ['A', 'B', 'Up', 'Down', 'Left', 'Right', 'Start', 'Select'],
+          labels: ['A', 'B', 'C', 'X', 'Y', 'Z', 'Up', 'Down', 'Left', 'Right', 'L', 'R', 'Start', 'Select', 'Mode', 'C-Up', 'C-Down', 'C-Left', 'C-Right'],
           datasets: [{
             label: 'Presses',
-            data: [0, 0, 0, 0, 0, 0, 0, 0],
+            data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             backgroundColor: 'rgba(6, 182, 212, 0.4)',
             borderColor: 'rgba(6, 182, 212, 1)',
             borderWidth: 2,
@@ -479,7 +743,7 @@
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { family: 'Outfit' } } },
+            x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { family: 'Outfit', size: 9 } } },
             y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { precision: 0, color: '#9ca3af', font: { family: 'Outfit' } } }
           }
         }
@@ -600,11 +864,18 @@
       document.getElementById('partialPrefixMatch').checked = cfg.partialPrefixMatch || false;
 
       // Populate dynamic mappings
-      const consoles = ['nes', 'gb'];
-      const buttonsList = ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'Select', 'Start', 'Wait'];
+      const consoles = ['nes', 'gb', 'snes', 'gba', 'genesis', 'n64'];
+      const buttonsList = {
+        nes: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'Select', 'Start', 'Wait'],
+        gb: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'Select', 'Start', 'Wait'],
+        snes: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'X', 'Y', 'L', 'R', 'Select', 'Start', 'Wait'],
+        gba: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'L', 'R', 'Select', 'Start', 'Wait'],
+        genesis: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'C', 'X', 'Y', 'Z', 'Start', 'Mode', 'Wait'],
+        n64: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'L', 'R', 'Z', 'C-Up', 'C-Down', 'C-Left', 'C-Right', 'Start', 'Wait']
+      };
       consoles.forEach(con => {
         const sysMap = cfg.buttonMap && cfg.buttonMap[con] ? cfg.buttonMap[con] : {};
-        buttonsList.forEach(btn => {
+        buttonsList[con].forEach(btn => {
           const el = document.getElementById(`${con}-map-${btn}`);
           if (el) {
             el.value = sysMap[btn] || "";
@@ -627,13 +898,28 @@
       // Construct dynamic mapping configuration payload
       const buttonMap = {
         nes: {},
-        gb: {}
+        gb: {},
+        snes: {},
+        gba: {},
+        genesis: {},
+        n64: {}
       };
-      const buttonsList = ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'Select', 'Start', 'Wait'];
-      buttonsList.forEach(btn => {
-        buttonMap.nes[btn] = document.getElementById(`nes-map-${btn}`).value.trim();
-        buttonMap.gb[btn] = document.getElementById(`gb-map-${btn}`).value.trim();
-      });
+      const buttonsList = {
+        nes: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'Select', 'Start', 'Wait'],
+        gb: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'Select', 'Start', 'Wait'],
+        snes: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'X', 'Y', 'L', 'R', 'Select', 'Start', 'Wait'],
+        gba: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'L', 'R', 'Select', 'Start', 'Wait'],
+        genesis: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'C', 'X', 'Y', 'Z', 'Start', 'Mode', 'Wait'],
+        n64: ['Up', 'Down', 'Left', 'Right', 'A', 'B', 'L', 'R', 'Z', 'C-Up', 'C-Down', 'C-Left', 'C-Right', 'Start', 'Wait']
+      };
+      for (const [con, list] of Object.entries(buttonsList)) {
+        list.forEach(btn => {
+          const el = document.getElementById(`${con}-map-${btn}`);
+          if (el) {
+            buttonMap[con][btn] = el.value.trim();
+          }
+        });
+      }
 
       const payload = {
         channelName: document.getElementById('channelName').value.trim(),
@@ -682,7 +968,6 @@
         msg = "!clear";
       }
       
-      // Simulate/trigger admin action by calling local server
       fetch('/api/config')
         .then(res => res.json())
         .then(cfg => {
@@ -691,49 +976,24 @@
             return;
           }
           
-          // Construct admin command payload
           fetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // Just request toggle pause
             body: JSON.stringify({ 
-              queueMode: cfg.queueMode // preserve
+              queueMode: cfg.queueMode
             })
           });
 
-          // Post to Twitch chat via tmi.js by trigger
-          // For immediate mock testing, we execute action.
-          // Since server parses admin actions from Twitch chat, we can just trigger it!
-          // But to be secure and reliable, we'll let the user type in chat or handle in server.
-          // Wait, in server.js we can expose an API or mock an admin trigger. Let's make an admin websocket invoke.
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'admin_control', data: { action } }));
           }
         });
     }
 
-    // We can handle the local admin override by sending a message over websocket,
-    // let's update server.js in background if needed. Actually, server.js handles admin commands from Twitch.
-    // Let's add direct local API trigger in server.js or let the dashboard just POST config changes.
-    // If the streamer clicks Pause, we can simply POST the `isPaused` property!
-    // Wait, let's look at server.js: the Express endpoint doesn't directly expose `isPaused` in POST /api/config.
-    // We can add it! Wait, we can implement it nicely. Let's make the dashboard call `/api/config` with updated parameters,
-    // or let server.js expose admin overrides.
-    // Let's implement dynamic dashboard API triggers. Actually, let's see how the local buttons can send HTTP requests:
-    // We can add a simple HTTP POST to `/api/admin` in server.js! That's super clean and secure locally.
-    // Wait! Let's check if the server already has a WS handler for admin controls.
-    // Let's write the local triggers nicely in JS.
-    // To support admin control instantly, we can make the dashboard perform a POST request:
-    // Let's check how the UI pause button behaves.
-    // Let's add a small API route in server.js if needed.
-    // Alternatively, the dashboard can simulate typing an admin message, or we can just send it to a local endpoint!
-    // Let's make a call to `POST /api/admin` with `{ command: "pause" }`.
-    // Let's make sure it handles it. We will write the javascript to perform the fetch:
     function triggerLocalAdmin(cmdStr) {
       fetch('/api/config')
         .then(res => res.json())
         .then(cfg => {
-          // Let's send a post directly
           fetch('/api/admin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -746,13 +1006,11 @@
             }
           })
           .catch(e => {
-            // Fallback: If server.js /api/admin doesn't exist, we can implement it! We will add it to server.js in a moment.
             console.error("Local admin failed: ", e);
           });
         });
     }
     
-    // Bind click handlers to local admin commands
     window.sendAdminControl = function(action) {
       if (action === 'pause') {
         const btn = document.getElementById('admin-pause-btn');
@@ -763,7 +1021,6 @@
       }
     };
 
-    // Render Connection status
     function renderStatus(st) {
       const tBadge = document.getElementById('twitch-status');
       const bBadge = document.getElementById('bizhawk-status');
@@ -784,10 +1041,9 @@
         bBadge.querySelector('span').innerText = "BizHawk: Offline";
       }
 
-      // Update local Pause/Resume button state
       const pauseBtn = document.getElementById('admin-pause-btn');
       if (st.isPaused) {
-        pauseBtn.className = "btn btn-primary"; // glowing purple
+        pauseBtn.className = "btn btn-primary";
         pauseBtn.innerHTML = '<i data-lucide="play"></i> Resume Emulation';
       } else {
         pauseBtn.className = "btn btn-secondary";
@@ -796,12 +1052,10 @@
       lucide.createIcons();
     }
 
-    // Render Queue Items and Democracy Fills
     function renderQueue(data) {
       const anarchyQueue = document.getElementById('anarchy-queue');
       const democracyVote = document.getElementById('democracy-vote');
       
-      // Update interactive toggle state and glow colors
       const toggle = document.getElementById('queue-mode-toggle');
       const labelAnarchy = document.getElementById('label-anarchy');
       const labelDemocracy = document.getElementById('label-democracy');
@@ -814,10 +1068,8 @@
         anarchyQueue.style.display = 'none';
         democracyVote.style.display = 'flex';
 
-        // Update timer
         document.getElementById('democracy-time').innerText = data.timeRemaining + "s";
 
-        // Render vote lists
         const voteList = document.getElementById('democracy-votes-list');
         voteList.innerHTML = "";
 
@@ -847,7 +1099,6 @@
         });
 
       } else {
-        // Anarchy Queue
         toggle.checked = false;
         labelAnarchy.style.color = 'var(--color-cyan)';
         labelDemocracy.style.color = 'var(--text-muted)';
@@ -878,35 +1129,30 @@
       }
     }
 
-    // Render stats and graphs
     function renderStats(st) {
       document.getElementById('stat-total-inputs').innerText = st.totalInputs.toLocaleString();
       document.getElementById('stat-input-rate').innerText = st.inputRate;
       
-      // Calculate top chatters list
       const topChatters = Object.entries(st.topChatters).sort((a,b) => b[1] - a[1]);
       document.getElementById('stat-active-viewers').innerText = topChatters.length;
 
-      // Update Button Chart
-      const btnLabels = ['a', 'b', 'up', 'down', 'left', 'right', 'start', 'select'];
+      const btnLabels = ['a', 'b', 'c', 'x', 'y', 'z', 'up', 'down', 'left', 'right', 'l', 'r', 'start', 'select', 'mode', 'c-up', 'c-down', 'c-left', 'c-right'];
       const btnCounts = btnLabels.map(lbl => st.buttonsPressed[lbl] || 0);
       
       buttonChart.data.datasets[0].data = btnCounts;
       buttonChart.update();
 
-      // Update Chatter Chart
       if (topChatters.length > 0) {
         const top5 = topChatters.slice(0, 5);
         chatterChart.data.labels = top5.map(c => '@' + c[0]);
         chatterChart.data.datasets[0].data = top5.map(c => c[1]);
         
-        // Custom color schemes
         chatterChart.data.datasets[0].backgroundColor = [
-          'rgba(168, 85, 247, 0.6)', // purple
-          'rgba(6, 182, 212, 0.6)',  // cyan
-          'rgba(16, 185, 129, 0.6)', // green
-          'rgba(245, 158, 11, 0.6)', // yellow
-          'rgba(239, 68, 68, 0.6)'   // red
+          'rgba(168, 85, 247, 0.6)', 
+          'rgba(6, 182, 212, 0.6)',  
+          'rgba(16, 185, 129, 0.6)', 
+          'rgba(245, 158, 11, 0.6)', 
+          'rgba(239, 68, 68, 0.6)'   
         ];
         chatterChart.data.datasets[0].borderColor = [
           '#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'
@@ -918,7 +1164,6 @@
       chatterChart.update();
     }
 
-    // Toggle Chat Filter
     function toggleChatFilter() {
       filterCommands = document.getElementById('chat-filter-cmds').checked;
       const chatMessages = document.getElementById('chat-messages');
@@ -933,16 +1178,13 @@
       });
     }
 
-    // Append message to Chat Feed monitor
     function appendChatMessage(data) {
       const chatMessages = document.getElementById('chat-messages');
       
-      // If we are at the default state, clear it
       if (chatMessages.innerHTML.includes("Awaiting Twitch Chat")) {
         chatMessages.innerHTML = "";
       }
 
-      // Check if user is broadcaster or mod
       let badgesHtml = "";
       if (data.badge) {
         if (data.badge.broadcaster === '1') {
@@ -955,7 +1197,7 @@
       const item = document.createElement('div');
       item.className = "chat-item";
       
-      const adminPrefix = '!'; // Local reference
+      const adminPrefix = '!';
       const isAdminCommand = data.message.startsWith(adminPrefix);
 
       if (data.isCommand) {
@@ -965,7 +1207,6 @@
         item.classList.add('admin');
       }
 
-      // Hide if filtered
       if (filterCommands && !data.isCommand) {
         item.style.display = 'none';
       }
@@ -987,13 +1228,11 @@
       chatMessages.appendChild(item);
       chatMessages.scrollTop = chatMessages.scrollHeight;
 
-      // Keep only 50 messages
       if (chatMessages.childElementCount > 50) {
         chatMessages.removeChild(chatMessages.firstChild);
       }
     }
 
-    // Set dynamic virtual controller layouts
     function updateControllerLayout(type) {
       currentConsole = type;
       const container = document.getElementById('controller-body');
@@ -1034,8 +1273,168 @@
             </div>
           </div>
         `;
+      } else if (type === 'snes') {
+        container.innerHTML = `
+          <div class="snes-bezel">
+            <div id="btn-l" class="v-shoulder v-shoulder-l">L</div>
+            <div id="btn-r" class="v-shoulder v-shoulder-r">R</div>
+            <div class="v-dpad">
+              <div id="btn-up" class="v-dpad-btn v-dpad-up"></div>
+              <div id="btn-down" class="v-dpad-btn v-dpad-down"></div>
+              <div id="btn-left" class="v-dpad-btn v-dpad-left"></div>
+              <div id="btn-right" class="v-dpad-btn v-dpad-right"></div>
+              <div class="v-dpad-center"></div>
+            </div>
+            <div class="v-system-buttons">
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-select" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Select</span>
+              </div>
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-start" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Start</span>
+              </div>
+            </div>
+            <div class="v-buttons-snes">
+              <div class="v-btn-row">
+                <div id="btn-x" class="v-btn-snes snes-x">X</div>
+              </div>
+              <div class="v-btn-row-middle">
+                <div id="btn-y" class="v-btn-snes snes-y">Y</div>
+                <div id="btn-a" class="v-btn-snes snes-a">A</div>
+              </div>
+              <div class="v-btn-row">
+                <div id="btn-b" class="v-btn-snes snes-b">B</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (type === 'gba') {
+        container.innerHTML = `
+          <div class="gba-bezel">
+            <div id="btn-l" class="v-shoulder v-shoulder-l">L</div>
+            <div id="btn-r" class="v-shoulder v-shoulder-r">R</div>
+            
+            <div class="gba-left-side">
+              <div class="v-dpad">
+                <div id="btn-up" class="v-dpad-btn v-dpad-up"></div>
+                <div id="btn-down" class="v-dpad-btn v-dpad-down"></div>
+                <div id="btn-left" class="v-dpad-btn v-dpad-left"></div>
+                <div id="btn-right" class="v-dpad-btn v-dpad-right"></div>
+                <div class="v-dpad-center"></div>
+              </div>
+            </div>
+            
+            <div class="gba-screen-area">
+              <div class="gba-screen-bezel">
+                <div class="gba-screen">
+                  <div style="font-size:0.55rem; color:#f3f4f6; margin-bottom:5px; font-weight:bold; letter-spacing:1px;">GAME BOY ADVANCE</div>
+                  <div id="lcd-line1" style="font-size:0.8rem; letter-spacing:0.5px; color:#e0f2fe; text-shadow:0 0 5px var(--color-cyan);">STANDBY</div>
+                  <div id="lcd-line2" style="font-size:0.65rem; color:#93c5fd; margin-top:2px;">READY TO PLAY</div>
+                </div>
+              </div>
+              <div class="v-system-buttons">
+                <div class="v-sys-btn-wrapper">
+                  <div id="btn-select" class="v-sys-btn"></div>
+                  <span class="v-sys-btn-lbl">Select</span>
+                </div>
+                <div class="v-sys-btn-wrapper">
+                  <div id="btn-start" class="v-sys-btn"></div>
+                  <span class="v-sys-btn-lbl">Start</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="gba-right-side">
+              <div class="v-buttons">
+                <div id="btn-b" class="v-btn">B</div>
+                <div id="btn-a" class="v-btn">A</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (type === 'genesis') {
+        container.innerHTML = `
+          <div class="genesis-bezel">
+            <div id="btn-mode" class="v-mode-btn">Mode</div>
+            <div class="v-dpad">
+              <div id="btn-up" class="v-dpad-btn v-dpad-up"></div>
+              <div id="btn-down" class="v-dpad-btn v-dpad-down"></div>
+              <div id="btn-left" class="v-dpad-btn v-dpad-left"></div>
+              <div id="btn-right" class="v-dpad-btn v-dpad-right"></div>
+              <div class="v-dpad-center-genesis"></div>
+            </div>
+            
+            <div class="v-system-buttons-genesis">
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-start" class="v-sys-btn-genesis"></div>
+                <span class="v-sys-btn-lbl" style="color:#ef4444; font-size: 0.55rem; margin-top: 2px;">Start</span>
+              </div>
+            </div>
+            
+            <div class="v-buttons-genesis">
+              <div class="v-genesis-xyz-row">
+                <div id="btn-x" class="v-btn-genesis-small">X</div>
+                <div id="btn-y" class="v-btn-genesis-small">Y</div>
+                <div id="btn-z" class="v-btn-genesis-small">Z</div>
+              </div>
+              <div class="v-genesis-abc-row">
+                <div id="btn-a" class="v-btn-genesis-big">A</div>
+                <div id="btn-b" class="v-btn-genesis-big">B</div>
+                <div id="btn-c" class="v-btn-genesis-big">C</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (type === 'n64') {
+        container.innerHTML = `
+          <div class="n64-bezel">
+            <div id="btn-l" class="v-shoulder v-shoulder-l">L</div>
+            <div id="btn-r" class="v-shoulder v-shoulder-r">R</div>
+            
+            <div class="n64-prong prong-left">
+              <div class="v-dpad">
+                <div id="btn-up" class="v-dpad-btn v-dpad-up"></div>
+                <div id="btn-down" class="v-dpad-btn v-dpad-down"></div>
+                <div id="btn-left" class="v-dpad-btn v-dpad-left"></div>
+                <div id="btn-right" class="v-dpad-btn v-dpad-right"></div>
+                <div class="v-dpad-center"></div>
+              </div>
+            </div>
+            
+            <div class="n64-prong prong-center">
+              <div class="n64-start-wrapper">
+                <div id="btn-start" class="v-btn-n64-start"></div>
+                <span class="v-sys-btn-lbl" style="font-size:0.5rem; margin-top:2px;">Start</span>
+              </div>
+              <div class="n64-stick-well">
+                <div class="n64-stick-gate">
+                  <div class="n64-stick-shaft"></div>
+                </div>
+              </div>
+              <div class="n64-z-wrapper">
+                <div id="btn-z" class="v-btn-n64-z">Z</div>
+              </div>
+            </div>
+            
+            <div class="n64-prong prong-right">
+              <div class="n64-c-cluster">
+                <div id="btn-c-up" class="v-btn-c c-up">▲</div>
+                <div class="n64-c-middle">
+                  <div id="btn-c-left" class="v-btn-c c-left">◀</div>
+                  <div id="btn-c-right" class="v-btn-c c-right">▶</div>
+                </div>
+                <div id="btn-c-down" class="v-btn-c c-down">▼</div>
+              </div>
+              
+              <div class="n64-ab-cluster">
+                <div id="btn-b" class="v-btn-n64-b">B</div>
+                <div id="btn-a" class="v-btn-n64-a">A</div>
+              </div>
+            </div>
+          </div>
+        `;
       } else {
-        // NES Layout
         container.innerHTML = `
           <div class="nes-bezel">
             <div class="v-dpad">
@@ -1063,11 +1462,9 @@
         `;
       }
       
-      // Bind clickable listeners to newly created DOM controller buttons
       bindControllerClickEvents();
     }
 
-    // Toggle Queue Mode handler
     function toggleQueueMode(isDemocracy) {
       const mode = isDemocracy ? 'democracy' : 'anarchy';
       
@@ -1090,32 +1487,27 @@
       });
     }
 
-    // Bind click events to virtual controller buttons to send them to the emulator!
     function bindControllerClickEvents() {
       const container = document.getElementById('controller-body');
       if (!container) return;
       
-      const buttons = container.querySelectorAll('.v-dpad-btn, .v-btn, .v-sys-btn');
+      const buttons = container.querySelectorAll('[id^="btn-"]');
       
       buttons.forEach(btn => {
-        // Style as clickable
         btn.style.cursor = 'pointer';
         
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          const btnId = btn.id; // e.g. "btn-up"
-          const btnName = btnId.replace('btn-', ''); // e.g. "up"
+          const btnId = btn.id; 
+          let btnName = btnId.replace('btn-', ''); 
           
-          console.log(`Virtual controller clicked: ${btnName}`);
-          
-          // Send mock input to backend
           fetch('/api/mock_chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               user: 'Streamer',
               message: btnName,
-              badges: { broadcaster: '1' } // Admin privilege bypass
+              badges: { broadcaster: '1' } 
             })
           })
           .then(res => res.json())
@@ -1132,44 +1524,51 @@
       });
     }
 
-    // Animate Button Presses when active in BizHawk
     function animateControllerPress(data) {
-      // 1. Update text LCD Screen (if GameBoy) or HUD indicator
       const activeHud = document.getElementById('active-user-hud');
       activeHud.innerText = `@${data.user}: ${data.command}`.toUpperCase();
       
-      if (currentConsole === 'gb') {
+      if (currentConsole === 'gb' || currentConsole === 'gba') {
         const lcdLine1 = document.getElementById('lcd-line1');
         const lcdLine2 = document.getElementById('lcd-line2');
         if (lcdLine1) lcdLine1.innerText = data.command.toUpperCase();
         if (lcdLine2) lcdLine2.innerText = `BY @${data.user}`.toUpperCase();
       }
 
-      // 2. Flash controller buttons
       const buttonsMap = data.buttons;
       
-      // Release all buttons first
-      const allButtons = document.querySelectorAll('.v-dpad-btn, .v-btn, .v-sys-btn');
+      const allButtons = document.querySelectorAll('[id^="btn-"]');
       allButtons.forEach(btn => btn.classList.remove('pressed'));
 
-      // Highlight active buttons
       for (const [key, pressed] of Object.entries(buttonsMap)) {
         if (!pressed) continue;
-        const btnName = key.replace('P1 ', '').toLowerCase(); // e.g. "P1 Up" -> "up"
+        const btnName = key.replace('P1 ', '').toLowerCase();
         const btnElement = document.getElementById(`btn-${btnName}`);
         
         if (btnElement) {
           btnElement.classList.add('pressed');
           
-          // Remove highlight after a brief interval corresponding to key hold
           setTimeout(() => {
             btnElement.classList.remove('pressed');
           }, 250);
         }
+
+        if (currentConsole === 'n64') {
+          const stickShaft = document.querySelector('.n64-stick-shaft');
+          if (stickShaft) {
+            if (btnName === 'up') stickShaft.style.transform = 'translate(-50%, -50%) translate(0, -10px)';
+            else if (btnName === 'down') stickShaft.style.transform = 'translate(-50%, -50%) translate(0, 10px)';
+            else if (btnName === 'left') stickShaft.style.transform = 'translate(-50%, -50%) translate(-10px, 0)';
+            else if (btnName === 'right') stickShaft.style.transform = 'translate(-50%, -50%) translate(10px, 0)';
+            
+            setTimeout(() => {
+              stickShaft.style.transform = 'translate(-50%, -50%)';
+            }, 250);
+          }
+        }
       }
     }
 
-    // Toast Alert Helper
     function showToast(message, type = "info") {
       const container = document.getElementById('toast-container');
       const toast = document.createElement('div');
