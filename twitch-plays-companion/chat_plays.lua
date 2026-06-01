@@ -12,6 +12,45 @@ local POLL_URL = "http://localhost:8080/api/poll"
 local EMPTY_POLL_COOLDOWN = 10 -- Wait 10 frames before repolling if queue was empty
 local OFFLINE_RETRY_COOLDOWN = 180 -- Wait 3 seconds (180 frames) if server is offline
 
+-- URL Encoding helper for passing ROM name to server
+local function urlEncode(str)
+  if not str then return "" end
+  str = str:gsub("\n", "\r\n")
+  str = str:gsub("([^%w %-%_%.%~])", function (c) return string.format ("%%%02X", string.byte(c)) end)
+  str = str:gsub(" ", "%%20")
+  return str
+end
+
+-- Safely retrieve ROM name from BizHawk
+local function getRomName()
+  if gameinfo and gameinfo.getromname then
+    local name = gameinfo.getromname()
+    if name and name ~= "" then
+      return name
+    end
+  end
+  return ""
+end
+
+-- Process auto-savestate commands from JSON payload
+local function processSaveStateFromJson(json)
+  if not json or json == "" or json == "{}" then return end
+  local saveStatePath = json:match('"saveStatePath"%s*:%s*"([^"]+)"')
+  if saveStatePath then
+    -- Clean up escaped backslashes from JSON string
+    saveStatePath = saveStatePath:gsub("\\\\", "\\")
+    print("[AUTO-SAVE] Triggering emulator savestate to path: " .. saveStatePath)
+    local ok, err = pcall(function()
+      savestate.save(saveStatePath)
+    end)
+    if ok then
+      print("[AUTO-SAVE] Successfully saved state!")
+    else
+      print("[AUTO-SAVE] Error saving state: " .. tostring(err))
+    end
+  end
+end
+
 -- Script States (Global for Add-on/HUD visibility)
 STATE_IDLE = "IDLE"
 STATE_PRESS = "PRESS"
@@ -128,7 +167,8 @@ end
 local function makeWebRequestSync()
   local json = nil
   local requestOk, requestErr = pcall(function()
-    local req = HttpWebRequest.Create(POLL_URL)
+    local url = POLL_URL .. "?game=" .. urlEncode(getRomName())
+    local req = HttpWebRequest.Create(url)
     req.Timeout = 150 -- 150 milliseconds timeout
     local resp = req:GetResponse()
     local stream = resp:GetResponseStream()
@@ -228,7 +268,7 @@ while true do
       if http_client_available then
         -- Method 1: Async HttpClient Polling
         local ok, err = pcall(function()
-          pendingTask = http:GetStringAsync(POLL_URL)
+          pendingTask = http:GetStringAsync(POLL_URL .. "?game=" .. urlEncode(getRomName()))
         end)
         
         if not ok then
@@ -249,6 +289,7 @@ while true do
         local json, err = makeWebRequestSync()
         if json then
           serverOnline = true
+          processSaveStateFromJson(json)
           if json ~= "" and json ~= "{}" then
             print("[POLL] HTTP request returned raw JSON: " .. json)
             local cmd = parseJson(json)
@@ -299,7 +340,10 @@ while true do
           local ok, json = pcall(function() return pendingTask.Result end)
           pendingTask = nil
 
-          if ok and json and json ~= "" and json ~= "{}" then
+          if ok and json then
+            serverOnline = true
+            processSaveStateFromJson(json)
+            if json ~= "" and json ~= "{}" then
             print("[POLL] Async HTTP returned raw JSON: " .. json)
             local cmd = parseJson(json)
             if cmd then

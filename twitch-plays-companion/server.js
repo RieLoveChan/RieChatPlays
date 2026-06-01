@@ -35,6 +35,10 @@ const DEFAULT_CONFIG = {
   inputSuffix: "",
   partialPrefixMatch: false,
   buttonPressesCap: 0,
+  autoSaveStateEnabled: false,
+  autoSaveStateInterval: 15,
+  autoSaveStateUnit: "minutes",
+  autoSaveStateSuffix: "",
   buttonMap: {
     nes: {
       'Up': 'up, u',
@@ -125,6 +129,10 @@ const DEFAULT_CONFIG = {
 let config = { ...DEFAULT_CONFIG };
 let activeButtonMap = {};
 let activeWaitCommands = new Set();
+let bizhawkGameName = null;
+let autoSaveStateTimer = null;
+let pendingSaveState = false;
+let nextSaveStatePath = null;
 
 function rebuildActiveButtonMap() {
   activeButtonMap = {};
@@ -169,6 +177,75 @@ let stats = {
 };
 let bizhawkLastPoll = 0; // Timestamp
 
+// Auto-SaveState Scheduler and Trigger Functions
+function setupAutoSaveStateTimer() {
+  if (autoSaveStateTimer) {
+    clearInterval(autoSaveStateTimer);
+    autoSaveStateTimer = null;
+  }
+
+  if (!config.autoSaveStateEnabled) {
+    console.log('Auto-SaveState is currently disabled.');
+    return;
+  }
+
+  const intervalVal = parseInt(config.autoSaveStateInterval, 10);
+  if (isNaN(intervalVal) || intervalVal <= 0) {
+    console.warn(`Auto-SaveState skipped: invalid interval "${config.autoSaveStateInterval}"`);
+    return;
+  }
+
+  const multiplier = config.autoSaveStateUnit === 'hours' ? 60 * 60 * 1000 : 60 * 1000;
+  const ms = intervalVal * multiplier;
+
+  console.log(`Setting up Auto-SaveState timer for every ${intervalVal} ${config.autoSaveStateUnit} (${ms}ms)`);
+
+  autoSaveStateTimer = setInterval(() => {
+    if (isPaused) {
+      console.log('Auto-SaveState skipped because companion emulation controls are paused.');
+      return;
+    }
+    triggerAutoSaveState();
+  }, ms);
+}
+
+function triggerAutoSaveState() {
+  const now = new Date();
+  
+  // Format YYYYMMDD_HHMMSS
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  const timestamp = `${yyyy}${mm}${dd}_${hh}${min}${ss}`;
+
+  // Determine game name or suffix
+  let gameOrSuffix = 'unknown';
+  if (bizhawkGameName && bizhawkGameName.trim()) {
+    // Sanitize game name to be safe for filenames
+    gameOrSuffix = bizhawkGameName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  } else if (config.autoSaveStateSuffix && config.autoSaveStateSuffix.trim()) {
+    gameOrSuffix = config.autoSaveStateSuffix.trim().replace(/[^a-zA-Z0-9_\-]/g, '_');
+  }
+
+  const filename = `${timestamp}_${gameOrSuffix}.State`;
+  const saveStatesDir = path.join(__dirname, 'savestates');
+  
+  try {
+    if (!fs.existsSync(saveStatesDir)) {
+      fs.mkdirSync(saveStatesDir, { recursive: true });
+    }
+    
+    nextSaveStatePath = path.join(saveStatesDir, filename);
+    pendingSaveState = true;
+    console.log(`[SCHEDULED STATE] Auto-SaveState triggered! Next BizHawk poll will save to: ${nextSaveStatePath}`);
+  } catch (err) {
+    console.error('Failed to create savestates directory:', err);
+  }
+}
+
 // Load Configuration
 function loadConfig() {
   try {
@@ -192,10 +269,12 @@ function loadConfig() {
       saveConfig(DEFAULT_CONFIG);
     }
     rebuildActiveButtonMap();
+    setupAutoSaveStateTimer();
   } catch (err) {
     console.error('Error loading config, using defaults:', err);
     config = { ...DEFAULT_CONFIG };
     rebuildActiveButtonMap();
+    setupAutoSaveStateTimer();
   }
 }
 
@@ -215,6 +294,7 @@ function saveConfig(newConfig) {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
     console.log('Configuration saved to disk.');
     rebuildActiveButtonMap();
+    setupAutoSaveStateTimer();
     broadcast('config_updated', config);
     return true;
   } catch (err) {
@@ -382,7 +462,9 @@ function getServerStatus() {
   return {
     twitchConnected: twitchClient ? twitchClient.readyState() === 'OPEN' : false,
     bizhawkConnected: (Date.now() - bizhawkLastPoll) < 5000,
-    isPaused
+    isPaused,
+    romNameAvailable: !!bizhawkGameName,
+    gameName: bizhawkGameName
   };
 }
 
@@ -929,28 +1011,45 @@ app.get('/api/stats', (req, res) => {
 app.get('/api/poll', (req, res) => {
   bizhawkLastPoll = Date.now();
   
+  // Track game name from query parameters
+  const newGameName = req.query.game || null;
+  if (newGameName !== bizhawkGameName) {
+    console.log(`BizHawk reported game name change: "${bizhawkGameName}" -> "${newGameName}"`);
+    bizhawkGameName = newGameName;
+    broadcast('status_updated', getServerStatus());
+  }
+  
   if (isPaused) {
     return res.json({});
   }
 
+  let responseData = {};
+
   if (config.queueMode === 'democracy') {
     if (democracyQueue.length > 0) {
-      const nextInput = democracyQueue.shift();
+      responseData = { ...democracyQueue.shift() };
       broadcast('queue_updated', getQueueState());
-      broadcast('input_pressed', { buttons: nextInput.buttons, user: nextInput.user, command: nextInput.rawCommand, isWait: nextInput.isWait });
-      return res.json(nextInput);
+      broadcast('input_pressed', { buttons: responseData.buttons, user: responseData.user, command: responseData.rawCommand, isWait: responseData.isWait });
     }
   } else {
     // Anarchy / FIFO Queue
     if (inputQueue.length > 0) {
-      const nextInput = inputQueue.shift();
+      responseData = { ...inputQueue.shift() };
       broadcast('queue_updated', getQueueState());
-      broadcast('input_pressed', { buttons: nextInput.buttons, user: nextInput.user, command: nextInput.rawCommand, isWait: nextInput.isWait });
-      return res.json(nextInput);
+      broadcast('input_pressed', { buttons: responseData.buttons, user: responseData.user, command: responseData.rawCommand, isWait: responseData.isWait });
     }
   }
 
-  return res.json({});
+  // Inject saveState details if pending
+  if (pendingSaveState && nextSaveStatePath) {
+    responseData.saveState = true;
+    responseData.saveStatePath = nextSaveStatePath;
+    pendingSaveState = false;
+    nextSaveStatePath = null;
+    console.log(`[POLL COMMAND] Dispatched saveState instruction to BizHawk for path: ${responseData.saveStatePath}`);
+  }
+
+  return res.json(responseData);
 });
 
 // Start Server

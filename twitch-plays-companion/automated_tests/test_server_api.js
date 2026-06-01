@@ -332,6 +332,45 @@ async function runTests() {
     
     console.log('✔ All new console systems parsed, polled, and verified successfully!');
 
+    // 9. Test Auto-SaveState features
+    console.log('\n[TEST 9] Testing Auto-SaveState configurations & poll/status updates...');
+    
+    // Enable Auto-SaveState config
+    const autoSaveConfig = {
+      ...newConfig,
+      autoSaveStateEnabled: true,
+      autoSaveStateInterval: 1,
+      autoSaveStateUnit: 'minutes',
+      autoSaveStateSuffix: 'test_fallback'
+    };
+    console.log('- Enabling Auto-SaveState with interval 1 minute and suffix "test_fallback"...');
+    const autoSaveRes = await makeRequest('/api/config', 'POST', autoSaveConfig);
+    if (!autoSaveRes.success || !autoSaveRes.config.autoSaveStateEnabled || autoSaveRes.config.autoSaveStateSuffix !== 'test_fallback') {
+      throw new Error('Auto-SaveState configurations failed to save!');
+    }
+    
+    // Poll with ROM name parameter and check status API
+    console.log('- Polling /api/poll with game name "Super_Mario_Land"...');
+    await makeRequest('/api/poll?game=Super_Mario_Land');
+    
+    const statusWithRom = await makeRequest('/api/status');
+    console.log(`- Status gameName: "${statusWithRom.gameName}", romNameAvailable: ${statusWithRom.romNameAvailable}`);
+    if (statusWithRom.gameName !== 'Super_Mario_Land' || !statusWithRom.romNameAvailable) {
+      throw new Error('ROM/Game name was not tracked successfully on the server!');
+    }
+    
+    // Test dynamic status update on empty query parameters
+    console.log('- Polling /api/poll without game parameter...');
+    await makeRequest('/api/poll');
+    
+    const statusWithoutRom = await makeRequest('/api/status');
+    console.log(`- Status gameName: "${statusWithoutRom.gameName}", romNameAvailable: ${statusWithoutRom.romNameAvailable}`);
+    if (statusWithoutRom.gameName !== null || statusWithoutRom.romNameAvailable) {
+      throw new Error('Server failed to reset ROM name when polling parameter is empty!');
+    }
+    
+    console.log('✔ Auto-SaveState API and status updates verified successfully!');
+
     console.log('\n====================================================');
     console.log('   🎉 ALL INTEGRATION TESTS PASSED SUCCESSFULLY!    ');
     console.log('====================================================');

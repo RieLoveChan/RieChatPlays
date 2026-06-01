@@ -10,5 +10,9 @@
   "userCooldownSeconds": 3,
   "democracyVoteSeconds": 5,
   "sendChatFeedback": false,
-  "activeConsole": "gb"
+  "activeConsole": "gb",
+  "autoSaveStateEnabled": false,
+  "autoSaveStateInterval": 15,
+  "autoSaveStateUnit": "minutes",
+  "autoSaveStateSuffix": ""
 }

@@ -337,6 +337,59 @@
         </div>
       </div>
 
+      <!-- Card 2.5: Auto-SaveState Configurations -->
+      <div class="glass-card">
+        <div class="card-title">
+          <i data-lucide="save"></i>
+          <h2>Auto-SaveState Settings</h2>
+        </div>
+
+        <div class="toggle-wrapper" style="margin-bottom: 1rem;">
+          <div class="slider-info">
+            <span>Enable Auto-SaveState</span>
+            <span>Automatically save emulator state periodically</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoSaveStateEnabled" onchange="toggleSaveStateFields(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div id="savestate-fields-container" style="transition: opacity 0.3s ease;">
+          <div class="form-group">
+            <label for="autoSaveStateInterval">Save Interval</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <div class="input-wrapper" style="flex-grow: 1; margin-bottom: 0;">
+                <i data-lucide="timer"></i>
+                <input type="number" id="autoSaveStateInterval" min="1" step="1" placeholder="e.g., 15">
+              </div>
+              <div class="input-wrapper" style="width: 120px; margin-bottom: 0; display: block;">
+                <select id="autoSaveStateUnit" style="padding-left: 10px; height: 100%;">
+                  <option value="minutes">Minutes</option>
+                  <option value="hours">Hours</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" id="autoSaveStateSuffixGroup" style="margin-top: 1rem;">
+            <label for="autoSaveStateSuffix">File Name Suffix / Game Name</label>
+            <div class="input-wrapper">
+              <i data-lucide="file-text"></i>
+              <input type="text" id="autoSaveStateSuffix" placeholder="e.g., crystal_clear">
+            </div>
+            <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+              Suffix used for the save state file: <code>YYYYMMDD_HHMMSS_suffix.State</code>.
+            </p>
+          </div>
+
+          <div id="autoSaveStateRomDetected" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 8px 12px; border-radius: 6px; font-size: 0.75rem; color: #34d399; margin-top: 1rem; align-items: center; gap: 8px;">
+            <i data-lucide="check-circle" size="14"></i>
+            <span>Game name automatically retrieved: <strong id="detected-rom-name">...</strong></span>
+          </div>
+        </div>
+      </div>
+
       <!-- Card 3: NES Controller Mappings -->
       <div class="glass-card" style="grid-column: span 1;">
         <div class="card-title">
@@ -841,6 +894,25 @@
       }
     }
 
+    // Helper to dynamically enable/disable and visually fade auto-savestate inputs
+    window.toggleSaveStateFields = function(enabled) {
+      const container = document.getElementById('savestate-fields-container');
+      if (!container) return;
+      if (enabled) {
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+        document.getElementById('autoSaveStateInterval').disabled = false;
+        document.getElementById('autoSaveStateUnit').disabled = false;
+        document.getElementById('autoSaveStateSuffix').disabled = false;
+      } else {
+        container.style.opacity = '0.4';
+        container.style.pointerEvents = 'none';
+        document.getElementById('autoSaveStateInterval').disabled = true;
+        document.getElementById('autoSaveStateUnit').disabled = true;
+        document.getElementById('autoSaveStateSuffix').disabled = true;
+      }
+    };
+
     // Populate Settings UI Form
     function updateConfigForm(cfg) {
       document.getElementById('channelName').value = cfg.channelName || "";
@@ -862,6 +934,15 @@
       document.getElementById('inputPrefix').value = cfg.inputPrefix || "";
       document.getElementById('inputSuffix').value = cfg.inputSuffix || "";
       document.getElementById('partialPrefixMatch').checked = cfg.partialPrefixMatch || false;
+
+      // Auto-SaveState Settings
+      document.getElementById('autoSaveStateEnabled').checked = cfg.autoSaveStateEnabled || false;
+      document.getElementById('autoSaveStateInterval').value = cfg.autoSaveStateInterval || 15;
+      document.getElementById('autoSaveStateUnit').value = cfg.autoSaveStateUnit || "minutes";
+      document.getElementById('autoSaveStateSuffix').value = cfg.autoSaveStateSuffix || "";
+      
+      // Apply correct toggle layout
+      window.toggleSaveStateFields(cfg.autoSaveStateEnabled || false);
 
       // Populate dynamic mappings
       const consoles = ['nes', 'gb', 'snes', 'gba', 'genesis', 'n64'];
@@ -936,6 +1017,10 @@
         inputPrefix: document.getElementById('inputPrefix').value.trim(),
         inputSuffix: document.getElementById('inputSuffix').value.trim(),
         partialPrefixMatch: document.getElementById('partialPrefixMatch').checked,
+        autoSaveStateEnabled: document.getElementById('autoSaveStateEnabled').checked,
+        autoSaveStateInterval: parseInt(document.getElementById('autoSaveStateInterval').value, 10) || 15,
+        autoSaveStateUnit: document.getElementById('autoSaveStateUnit').value,
+        autoSaveStateSuffix: document.getElementById('autoSaveStateSuffix').value.trim(),
         buttonMap: buttonMap
       };
 
@@ -1049,6 +1134,23 @@
         pauseBtn.className = "btn btn-secondary";
         pauseBtn.innerHTML = '<i data-lucide="pause"></i> Pause Emulation';
       }
+
+      // Dynamic Auto-SaveState UI Suffix vs ROM detection banner
+      const suffixGroup = document.getElementById('autoSaveStateSuffixGroup');
+      const romDetected = document.getElementById('autoSaveStateRomDetected');
+      const detectedRomName = document.getElementById('detected-rom-name');
+      
+      if (suffixGroup && romDetected && detectedRomName) {
+        if (st.bizhawkConnected && st.romNameAvailable && st.gameName) {
+          suffixGroup.style.display = 'none';
+          romDetected.style.display = 'flex';
+          detectedRomName.innerText = st.gameName;
+        } else {
+          suffixGroup.style.display = 'block';
+          romDetected.style.display = 'none';
+        }
+      }
+
       lucide.createIcons();
     }
 
