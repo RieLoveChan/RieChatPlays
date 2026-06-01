@@ -69,6 +69,7 @@ local pendingTask = nil
 local pollCooldown = 0
 local serverOfflineTimer = 0
 local emptyPollLogTimer = 0
+local serverOfflineLogged = false
 
 -- HTTP CLIENT CONFIGURATION & FALLBACKS
 local http_client_available = false
@@ -288,6 +289,10 @@ while true do
         
         local json, err = makeWebRequestSync()
         if json then
+          if not serverOnline then
+            print("[POLL] Companion server connected successfully!")
+            serverOfflineLogged = false
+          end
           serverOnline = true
           processSaveStateFromJson(json)
           if json ~= "" and json ~= "{}" then
@@ -323,9 +328,12 @@ while true do
             pollCooldown = EMPTY_POLL_COOLDOWN
           end
         else
+          if serverOnline or not serverOfflineLogged then
+            print("[POLL] Companion server is offline. Will automatically reconnect when started.")
+            serverOfflineLogged = true
+          end
           serverOnline = false
           serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
-          print("Companion server offline. Retrying... Error details: " .. tostring(err))
         end
       end
     end
@@ -336,47 +344,54 @@ while true do
         local isFaulted = pendingTask.IsFaulted
         
         if not isFaulted then
-          serverOnline = true
           local ok, json = pcall(function() return pendingTask.Result end)
           pendingTask = nil
 
           if ok and json then
+            if not serverOnline then
+              print("[POLL] Companion server connected successfully!")
+              serverOfflineLogged = false
+            end
             serverOnline = true
             processSaveStateFromJson(json)
             if json ~= "" and json ~= "{}" then
-            print("[POLL] Async HTTP returned raw JSON: " .. json)
-            local cmd = parseJson(json)
-            if cmd then
-              activeButtons = cmd.buttons
-              activeUser = cmd.user
-              activeCommand = cmd.commandText
-              activeReleaseFrames = cmd.releaseFrames
-              
-              state = STATE_PRESS
-              framesLeft = cmd.holdFrames
-              
-              print(string.format("Chatter @%s pressed: %s (Hold: %df, Release: %df)", 
-                cmd.user, cmd.commandText, cmd.holdFrames, cmd.releaseFrames))
-              
-              -- Talk back exact keys passed to joypad.set!
-              local keys_applied = {}
-              for k, v in pairs(activeButtons) do
-                if v then table.insert(keys_applied, tostring(k)) end
+              print("[POLL] Async HTTP returned raw JSON: " .. json)
+              local cmd = parseJson(json)
+              if cmd then
+                activeButtons = cmd.buttons
+                activeUser = cmd.user
+                activeCommand = cmd.commandText
+                activeReleaseFrames = cmd.releaseFrames
+                
+                state = STATE_PRESS
+                framesLeft = cmd.holdFrames
+                
+                print(string.format("Chatter @%s pressed: %s (Hold: %df, Release: %df)", 
+                  cmd.user, cmd.commandText, cmd.holdFrames, cmd.releaseFrames))
+                
+                -- Talk back exact keys passed to joypad.set!
+                local keys_applied = {}
+                for k, v in pairs(activeButtons) do
+                  if v then table.insert(keys_applied, tostring(k)) end
+                end
+                table.sort(keys_applied)
+                print("  -> Joypad keys set: {" .. table.concat(keys_applied, ", ") .. "}")
+              else
+                print("[POLL] parseJson failed to find any valid buttons in the async JSON!")
+                pollCooldown = EMPTY_POLL_COOLDOWN
               end
-              table.sort(keys_applied)
-              print("  -> Joypad keys set: {" .. table.concat(keys_applied, ", ") .. "}")
             else
-              print("[POLL] parseJson failed to find any valid buttons in the async JSON!")
               pollCooldown = EMPTY_POLL_COOLDOWN
             end
-          else
-            pollCooldown = EMPTY_POLL_COOLDOWN
           end
         else
+          if serverOnline or not serverOfflineLogged then
+            print("[POLL] Companion server is offline. Will automatically reconnect when started.")
+            serverOfflineLogged = true
+          end
           serverOnline = false
           pendingTask = nil
           serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
-          print("Companion server offline. Retrying...")
         end
       end
     end

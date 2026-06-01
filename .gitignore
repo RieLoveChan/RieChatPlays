@@ -29,3 +29,7 @@ yarn-error.log*
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Emulator Savestates
+savestates/
+twitch-plays-companion/savestates/
