@@ -958,3 +958,122 @@ input:checked + .toggle-slider:before {
 .toast.success { border-left-color: var(--color-green); }
 .toast.error { border-left-color: var(--color-red); }
 .toast.info { border-left-color: var(--color-cyan); }
+
+/* --- New UI Tabs & Grids Styling --- */
+
+/* Tabs Bar */
+.tabs-container {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1.5rem auto 0 auto;
+  padding: 4px;
+  background: rgba(15, 17, 24, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 9999px;
+  width: fit-content;
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 10;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.5rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 9999px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.tab-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-purple), #7e22ce);
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+}
+
+/* Grids for Tabs */
+.tab-content {
+  display: none;
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Monitor Grid Structure */
+.monitor-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1500px;
+  margin: 0 auto;
+  min-height: calc(100vh - 150px);
+}
+
+/* Configuration Grid Structure */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Grid helper for button mappings */
+.mappings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.mappings-grid .form-group {
+  margin-bottom: 0.5rem;
+}
+
+.mappings-grid input {
+  padding-left: 1rem !important; /* normal text alignment, no left icon needed */
+}
+
+@media (max-width: 1200px) {
+  .monitor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+  .mappings-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

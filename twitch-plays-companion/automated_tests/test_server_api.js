@@ -61,66 +61,98 @@ async function runTests() {
     const config = await makeRequest('/api/config');
     console.log(`✔ Config loaded. Active console: ${config.activeConsole}, Mode: ${config.queueMode}`);
     // 3. Test POST Configuration
-    console.log('\n[TEST 3] Verifying POST /api/config...');
+    console.log('\n[TEST 3] Verifying POST /api/config with custom button mappings & presses cap...');
     const newConfig = {
       channelName: 'test_streamer',
       queueMode: 'anarchy',
+      activeConsole: 'nes',
       holdFrames: 12,
       releaseFrames: 6,
-      userCooldownSeconds: 0 // set to 0 for instant multiple inputs in testing
+      userCooldownSeconds: 0, // no cooldown for quick multiple inputs
+      buttonPressesCap: 5,
+      inputPrefix: "",
+      inputSuffix: "",
+      buttonMap: {
+        nes: {
+          'Up': 'up, u, arriba',
+          'Down': 'down, d',
+          'Left': 'left, l',
+          'Right': 'right, r',
+          'A': 'a, golpe',
+          'B': 'b',
+          'Select': 'select, sel',
+          'Start': 'start, st',
+          'Wait': 'wait, w, espera'
+        }
+      }
     };
     const updateResult = await makeRequest('/api/config', 'POST', newConfig);
-    if (!updateResult.success || updateResult.config.channelName !== 'test_streamer') {
+    if (!updateResult.success || updateResult.config.channelName !== 'test_streamer' || updateResult.config.buttonPressesCap !== 5) {
       throw new Error('Failed to update config settings!');
     }
-    console.log('✔ Configuration updated and verified successfully.');
+    console.log('✔ Configuration updated and dynamic mappings built successfully.');
 
-    // 4. Test Chat Command Parsing & Queue FIFO
-    console.log('\n[TEST 4] Simulating Twitch Chat button inputs...');
+    // 4. Test Chat Command Parsing & Queue FIFO with new features
+    console.log('\n[TEST 4] Simulating Twitch Chat inputs with dynamic mappings, multipliers, waits, and cap...');
     
-    // Inject mock message
-    const chatMsg1 = { user: 'RieLoveChan', message: 'up+a' };
-    const chatMsg2 = { user: 'AlexSpeedrun', message: 'hold b 35' };
-    const chatMsg3 = { user: 'CasualChatter', message: 'u d l r' }; // sequence!
+    // Inject mock messages
+    const chatMsg1 = { user: 'RieLoveChan', message: 'arriba+golpe' }; // Custom dynamic combination -> resolving to Up+A
+    const chatMsg2 = { user: 'AlexSpeedrun', message: 'b*3' };          // Command Multiplier -> enqueues 3 B inputs
+    const chatMsg3 = { user: 'CasualChatter', message: 'espera' };      // Wait command -> enqueues 1 Wait
+    const chatMsg4 = { user: 'Spammer', message: 'u*10' };              // Spam exploit -> enqueues 5 Up inputs (capped at buttonPressesCap=5)
 
-    console.log(`- Injecting chat message from @${chatMsg1.user}: "${chatMsg1.message}"`);
+    console.log(`- Injecting chat message from @${chatMsg1.user}: "${chatMsg1.message}" (Custom Dynamic Combo)`);
     await makeRequest('/api/mock_chat', 'POST', chatMsg1);
     
-    console.log(`- Injecting chat message from @${chatMsg2.user}: "${chatMsg2.message}"`);
+    console.log(`- Injecting chat message from @${chatMsg2.user}: "${chatMsg2.message}" (Multiplier *3)`);
     await makeRequest('/api/mock_chat', 'POST', chatMsg2);
 
-    console.log(`- Injecting chat message from @${chatMsg3.user}: "${chatMsg3.message}" (Sequence)`);
+    console.log(`- Injecting chat message from @${chatMsg3.user}: "${chatMsg3.message}" (Wait Command)`);
     await makeRequest('/api/mock_chat', 'POST', chatMsg3);
 
-    // Get Status to verify queue size
+    console.log(`- Injecting chat message from @${chatMsg4.user}: "${chatMsg4.message}" (Spam Multiplier *10 capped at 5)`);
+    await makeRequest('/api/mock_chat', 'POST', chatMsg4);
+
+    // Get Status to verify queue size (1 Up+A + 3 B + 1 Wait + 5 Up = 10)
     const status = await makeRequest('/api/status');
-    console.log(`✔ Verification status: Queue size is ${status.queueSize} items (Expected: 6)`);
-    if (status.queueSize !== 6) {
-      throw new Error(`Queue size mismatch! Got ${status.queueSize}, expected 6.`);
+    console.log(`✔ Verification status: Queue size is ${status.queueSize} items (Expected: 10)`);
+    if (status.queueSize !== 10) {
+      throw new Error(`Queue size mismatch! Got ${status.queueSize}, expected 10.`);
     }
 
     // 5. Test Poll API Consumption
-    console.log('\n[TEST 5] Testing /api/poll inputs consumer (BizHawk simulator)...');
+    console.log('\n[TEST 5] Testing /api/poll inputs consumer (BizHawk simulator) to verify all properties...');
     
-    // Poll first input (up+a)
+    // Poll first input (arriba+golpe -> Up+A)
     const poll1 = await makeRequest('/api/poll');
     console.log(`✔ Poll 1 returned: [ ${poll1.commandText} ] by @${poll1.user}`);
     if (poll1.user !== 'RieLoveChan' || !poll1.buttons['Up'] || !poll1.buttons['A']) {
-      throw new Error('Poll 1 values incorrect!');
+      throw new Error('Poll 1 dynamic combo parsing incorrect!');
     }
 
-    // Poll second input (hold b 35)
+    // Poll next three inputs (b*3 -> B, B, B)
     const poll2 = await makeRequest('/api/poll');
-    console.log(`✔ Poll 2 returned: [ ${poll2.commandText} ] by @${poll2.user} (Hold: ${poll2.holdFrames}f)`);
-    if (poll2.user !== 'AlexSpeedrun' || !poll2.buttons['B'] || poll2.holdFrames !== 35) {
-      throw new Error('Poll 2 values/hold frames incorrect!');
+    const poll3 = await makeRequest('/api/poll');
+    const poll4 = await makeRequest('/api/poll');
+    console.log(`✔ Poll 2 returned: [ ${poll2.commandText} ] by @${poll2.user}`);
+    console.log(`✔ Poll 3 returned: [ ${poll3.commandText} ] by @${poll3.user}`);
+    console.log(`✔ Poll 4 returned: [ ${poll4.commandText} ] by @${poll4.user}`);
+    if (poll2.commandText !== 'B' || poll3.commandText !== 'B' || poll4.commandText !== 'B') {
+      throw new Error('Poll multiplier queue parsing incorrect!');
     }
 
-    // Poll third input (u in sequence)
-    const poll3 = await makeRequest('/api/poll');
-    console.log(`✔ Poll 3 returned: [ ${poll3.commandText} ] by @${poll3.user}`);
-    if (poll3.commandText !== 'Up') {
-      throw new Error('Poll 3 sequence parsing incorrect!');
+    // Poll next input (espera -> Wait command, isWait = true, empty buttons)
+    const poll5 = await makeRequest('/api/poll');
+    console.log(`✔ Poll 5 returned: [ ${poll5.commandText} ] by @${poll5.user} (isWait: ${poll5.isWait}, buttons: ${JSON.stringify(poll5.buttons)})`);
+    if (poll5.commandText !== 'Wait' || !poll5.isWait || Object.keys(poll5.buttons).length !== 0) {
+      throw new Error('Poll Wait command parsing incorrect!');
+    }
+
+    // Poll next inputs (u*10 -> capped at 5 Up presses)
+    const poll6 = await makeRequest('/api/poll');
+    console.log(`✔ Poll 6 returned: [ ${poll6.commandText} ] (First of capped sequence)`);
+    if (poll6.commandText !== 'Up') {
+      throw new Error('Poll capped sequence parsing incorrect!');
     }
 
     // 6. Test Admin Command Pause Overrides
@@ -153,10 +185,10 @@ async function runTests() {
       throw new Error('Server should be unpaused!');
     }
 
-    // Poll after resume (should return next item in sequence: 'd')
+    // Poll after resume (should return next item in sequence: 'Up')
     const pollResume = await makeRequest('/api/poll');
-    console.log(`✔ Polling after resume returned: [ ${pollResume.commandText} ] (Expected 'Down')`);
-    if (pollResume.commandText !== 'Down') {
+    console.log(`✔ Polling after resume returned: [ ${pollResume.commandText} ] (Expected 'Up')`);
+    if (pollResume.commandText !== 'Up') {
       throw new Error('Polling after resume failed to fetch next command!');
     }
 

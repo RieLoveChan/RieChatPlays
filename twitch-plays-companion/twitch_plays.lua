@@ -95,7 +95,9 @@ local function parseJson(json)
     end
   end
 
-  if not hasButtons then
+  local isWait = json:match('"isWait"%s*:%s*true') ~= nil
+
+  if not hasButtons and not isWait then
     return nil
   end
 
@@ -109,7 +111,8 @@ local function parseJson(json)
     holdFrames = holdFrames,
     releaseFrames = releaseFrames,
     user = user,
-    commandText = commandText
+    commandText = commandText,
+    isWait = isWait
   }
 end
 

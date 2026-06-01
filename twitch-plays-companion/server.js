@@ -33,14 +33,68 @@ const DEFAULT_CONFIG = {
   activeConsole: "nes", // nes, gb
   inputPrefix: "",
   inputSuffix: "",
-  partialPrefixMatch: false
+  partialPrefixMatch: false,
+  buttonPressesCap: 0,
+  buttonMap: {
+    nes: {
+      'Up': 'up, u',
+      'Down': 'down, d',
+      'Left': 'left, l',
+      'Right': 'right, r',
+      'A': 'a',
+      'B': 'b',
+      'Select': 'select, sel',
+      'Start': 'start, st',
+      'Wait': 'wait, w'
+    },
+    gb: {
+      'Up': 'up, u',
+      'Down': 'down, d',
+      'Left': 'left, l',
+      'Right': 'right, r',
+      'A': 'a',
+      'B': 'b',
+      'Select': 'select, sel',
+      'Start': 'start, st',
+      'Wait': 'wait, w'
+    }
+  }
 };
 
 // Global state
 let config = { ...DEFAULT_CONFIG };
+let activeButtonMap = {};
+let activeWaitCommands = new Set();
+
+function rebuildActiveButtonMap() {
+  activeButtonMap = {};
+  activeWaitCommands = new Set();
+  
+  const system = config.activeConsole || 'nes';
+  const sysMap = config.buttonMap && config.buttonMap[system] ? config.buttonMap[system] : DEFAULT_CONFIG.buttonMap[system];
+  
+  for (const [physicalBtn, cmdString] of Object.entries(sysMap)) {
+    if (!cmdString) continue;
+    const triggers = cmdString.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    triggers.forEach(trigger => {
+      if (physicalBtn === 'Wait') {
+        activeWaitCommands.add(trigger);
+      } else {
+        activeButtonMap[trigger] = physicalBtn;
+      }
+    });
+  }
+  
+  console.log(`Rebuilt button mappings for console: ${system}`, {
+    buttons: activeButtonMap,
+    waits: Array.from(activeWaitCommands)
+  });
+}
+
 let twitchClient = null;
 let isPaused = false;
 let inputQueue = []; // For anarchy mode
+let democracyQueue = []; // For democracy mode sequences
 let democracyVotes = {}; // command -> count for democracy
 let democracyTimer = null;
 let lastDemocracyWinner = null;
@@ -60,23 +114,39 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
-      config = { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      config = { ...DEFAULT_CONFIG, ...parsed };
+      // Ensure buttonMap is deep merged correctly
+      if (parsed.buttonMap) {
+        config.buttonMap = {
+          nes: { ...DEFAULT_CONFIG.buttonMap.nes, ...parsed.buttonMap.nes },
+          gb: { ...DEFAULT_CONFIG.buttonMap.gb, ...parsed.buttonMap.gb }
+        };
+      }
       console.log('Configuration loaded from disk.');
     } else {
       saveConfig(DEFAULT_CONFIG);
     }
+    rebuildActiveButtonMap();
   } catch (err) {
     console.error('Error loading config, using defaults:', err);
     config = { ...DEFAULT_CONFIG };
+    rebuildActiveButtonMap();
   }
 }
 
 // Save Configuration
 function saveConfig(newConfig) {
   try {
-    config = { ...config, ...newConfig };
+    const mergedButtonMap = newConfig.buttonMap ? {
+      nes: { ...(config.buttonMap ? config.buttonMap.nes : DEFAULT_CONFIG.buttonMap.nes), ...newConfig.buttonMap.nes },
+      gb: { ...(config.buttonMap ? config.buttonMap.gb : DEFAULT_CONFIG.buttonMap.gb), ...newConfig.buttonMap.gb }
+    } : (config.buttonMap || DEFAULT_CONFIG.buttonMap);
+
+    config = { ...config, ...newConfig, buttonMap: mergedButtonMap };
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
     console.log('Configuration saved to disk.');
+    rebuildActiveButtonMap();
     broadcast('config_updated', config);
     return true;
   } catch (err) {
@@ -84,6 +154,7 @@ function saveConfig(newConfig) {
     return false;
   }
 }
+
 
 // Express & WebSocket Server Setup
 const app = express();
@@ -138,33 +209,35 @@ function registerStat(username, command) {
 }
 
 // Twitch Plays Command Parser
-const BUTTON_MAP = {
-  // standard button mapping
-  'a': 'A',
-  'b': 'B',
-  'up': 'Up',
-  'u': 'Up',
-  'down': 'Down',
-  'd': 'Down',
-  'left': 'Left',
-  'l': 'Left',
-  'right': 'Right',
-  'r': 'Right',
-  'select': 'Select',
-  'sel': 'Select',
-  'start': 'Start',
-  'st': 'Start'
-};
-
 function parseCommandText(text) {
   const rawText = text.trim().toLowerCase();
   
-  // Check for holds, e.g., "hold a 30" or "a 30"
-  let holdMatch = rawText.match(/^(?:hold\s+)?(a|b|up|down|left|right|select|start|u|d|l|r|sel|st)\s+(\d+)$/i);
+  // 1. Check if it's a Wait command
+  if (activeWaitCommands.has(rawText)) {
+    return {
+      buttons: {},
+      isWait: true,
+      holdFrames: config.holdFrames,
+      rawCommand: 'Wait'
+    };
+  }
+
+  // 2. Check for holds, e.g., "hold a 30" or "a 30"
+  let holdMatch = rawText.match(/^(?:hold\s+)?([a-z0-9_]+)\s+(\d+)$/i);
   if (holdMatch) {
-    const rawBtn = holdMatch[1];
+    const trigger = holdMatch[1].toLowerCase();
     const frames = Math.min(120, Math.max(1, parseInt(holdMatch[2], 10)));
-    const mappedBtn = BUTTON_MAP[rawBtn];
+    
+    if (activeWaitCommands.has(trigger)) {
+      return {
+        buttons: {},
+        isWait: true,
+        holdFrames: frames,
+        rawCommand: `Wait (${frames}f)`
+      };
+    }
+    
+    const mappedBtn = activeButtonMap[trigger];
     if (mappedBtn) {
       const buttons = {};
       buttons[mappedBtn] = true;
@@ -176,14 +249,15 @@ function parseCommandText(text) {
     }
   }
 
-  // Check for combinations, e.g., "up+a", "down+b", "left+right+start"
+  // 3. Check for combinations, e.g., "up+a", "down+b"
   if (rawText.includes('+')) {
     const parts = rawText.split('+');
     const buttons = {};
     const validMapped = [];
     
     for (let part of parts) {
-      const mapped = BUTTON_MAP[part.trim()];
+      const trigger = part.trim().toLowerCase();
+      const mapped = activeButtonMap[trigger];
       if (mapped) {
         buttons[mapped] = true;
         validMapped.push(mapped);
@@ -199,8 +273,8 @@ function parseCommandText(text) {
     }
   }
 
-  // Single button checks
-  const mappedBtn = BUTTON_MAP[rawText];
+  // 4. Single button checks
+  const mappedBtn = activeButtonMap[rawText];
   if (mappedBtn) {
     const buttons = {};
     buttons[mappedBtn] = true;
@@ -213,6 +287,7 @@ function parseCommandText(text) {
 
   return null;
 }
+
 
 // Queue State Builder
 function getQueueState() {
@@ -265,17 +340,60 @@ function startDemocracyLoop() {
       }
       
       if (winner) {
-        const parsed = parseCommandText(winner);
-        if (parsed) {
-          // Put the winning command into a temporary slot for BizHawk to fetch next
+        // Clear old democracy queue
+        democracyQueue = [];
+        
+        // Parse the winner into sequence of inputs
+        const seqParts = winner.split(/\s+/).filter(Boolean);
+        const parsedSequence = [];
+        let totalPresses = 0;
+        const cap = config.buttonPressesCap || 0;
+
+        for (const part of seqParts) {
+          if (!part) continue;
+          
+          const multMatch = part.match(/^(.+)\*(\d+)$/);
+          let baseCommand = part;
+          let multiplier = 1;
+          if (multMatch) {
+            baseCommand = multMatch[1].trim();
+            multiplier = Math.max(1, parseInt(multMatch[2], 10));
+          }
+          
+          const parsed = parseCommandText(baseCommand);
+          if (parsed) {
+            for (let i = 0; i < multiplier; i++) {
+              if (cap > 0 && totalPresses >= cap) {
+                break;
+              }
+              parsedSequence.push(parsed);
+              totalPresses++;
+            }
+          }
+          if (cap > 0 && totalPresses >= cap) {
+            break;
+          }
+        }
+
+        if (parsedSequence.length > 0) {
+          // Queue all items in sequence
+          parsedSequence.forEach(parsed => {
+            democracyQueue.push({
+              ...parsed,
+              user: 'democracy',
+              commandText: parsed.rawCommand
+            });
+          });
+
           lastDemocracyWinner = {
-            ...parsed,
-            user: 'democracy',
-            commandText: parsed.rawCommand,
+            rawCommand: winner,
             votes: maxVotes
           };
-          console.log(`Democracy winner: ${winner} with ${maxVotes} votes.`);
-          sendFeedbackToTwitch(`Democracy Input Selected: [ ${parsed.rawCommand} ] with ${maxVotes} votes!`);
+          
+          console.log(`Democracy winner: ${winner} with ${maxVotes} votes (parsed ${parsedSequence.length} inputs).`);
+          sendFeedbackToTwitch(`Democracy Input Selected: [ ${winner} ] with ${maxVotes} votes!`);
+        } else {
+          lastDemocracyWinner = null;
         }
       } else {
         lastDemocracyWinner = null;
@@ -296,6 +414,7 @@ function stopDemocracyLoop() {
     democracyTimer = null;
   }
   democracyVotes = {};
+  democracyQueue = [];
   lastDemocracyWinner = null;
 }
 
@@ -308,14 +427,17 @@ function setQueueMode(mode) {
   
   if (mode === 'democracy') {
     inputQueue = [];
+    democracyQueue = [];
     startDemocracyLoop();
   } else {
     stopDemocracyLoop();
+    democracyQueue = [];
   }
   
   broadcast('queue_updated', getQueueState());
   return true;
 }
+
 
 // Twitch Feedback helper
 function sendFeedbackToTwitch(message) {
@@ -352,6 +474,7 @@ function processAdminCommand(username, message) {
       
     case 'clear':
       inputQueue = [];
+      democracyQueue = [];
       democracyVotes = {};
       lastDemocracyWinner = null;
       broadcast('queue_updated', getQueueState());
@@ -504,16 +627,36 @@ function handleChatMessage(username, message, badges = {}) {
   }
 
   // 4. Parse Chat Inputs
-  // Tokenizer matching hold commands or combos/single buttons
-  const tokenizer = /(?:hold\s+)?(?:a|b|up|down|left|right|select|start|u|d|l|r|sel|st)\s+\d+|(?:[a-z0-9+]+)/gi;
-  const seqParts = commandToParse.match(tokenizer) || [];
+  const seqParts = commandToParse.split(/\s+/).filter(Boolean);
   const parsedSequence = [];
-  
+  let totalPresses = 0;
+  const cap = config.buttonPressesCap || 0;
+
   for (const part of seqParts) {
     if (!part) continue;
-    const parsed = parseCommandText(part);
+    
+    // Check for multiplier, e.g. "Up*4"
+    const multMatch = part.match(/^(.+)\*(\d+)$/);
+    let baseCommand = part;
+    let multiplier = 1;
+    if (multMatch) {
+      baseCommand = multMatch[1].trim();
+      multiplier = Math.max(1, parseInt(multMatch[2], 10));
+    }
+    
+    const parsed = parseCommandText(baseCommand);
     if (parsed) {
-      parsedSequence.push(parsed);
+      for (let i = 0; i < multiplier; i++) {
+        if (cap > 0 && totalPresses >= cap) {
+          break;
+        }
+        parsedSequence.push(parsed);
+        totalPresses++;
+      }
+    }
+    
+    if (cap > 0 && totalPresses >= cap) {
+      break;
     }
   }
 
@@ -723,21 +866,18 @@ app.get('/api/poll', (req, res) => {
   }
 
   if (config.queueMode === 'democracy') {
-    // Return last democracy winner if available
-    const win = lastDemocracyWinner;
-    // Clear it so BizHawk gets it once, or let it repeat depending on design.
-    // For plays, we consume the winner once.
-    lastDemocracyWinner = null;
-    if (win) {
-      broadcast('input_pressed', { buttons: win.buttons, user: win.user, command: win.rawCommand });
-      return res.json(win);
+    if (democracyQueue.length > 0) {
+      const nextInput = democracyQueue.shift();
+      broadcast('queue_updated', getQueueState());
+      broadcast('input_pressed', { buttons: nextInput.buttons, user: nextInput.user, command: nextInput.rawCommand, isWait: nextInput.isWait });
+      return res.json(nextInput);
     }
   } else {
     // Anarchy / FIFO Queue
     if (inputQueue.length > 0) {
       const nextInput = inputQueue.shift();
       broadcast('queue_updated', getQueueState());
-      broadcast('input_pressed', { buttons: nextInput.buttons, user: nextInput.user, command: nextInput.rawCommand });
+      broadcast('input_pressed', { buttons: nextInput.buttons, user: nextInput.user, command: nextInput.rawCommand, isWait: nextInput.isWait });
       return res.json(nextInput);
     }
   }
