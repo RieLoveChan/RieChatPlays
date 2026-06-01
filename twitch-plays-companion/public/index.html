@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twitch Plays BizHawk - Control Dashboard</title>
+  <link rel="stylesheet" href="app.css">
+  <!-- Lucide Icons for clean vector glyphs -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- Dashboard Header -->
+  <header>
+    <div class="logo-container">
+      <i data-lucide="gamepad-2" class="logo-icon" size="28"></i>
+      <h1>TWITCH PLAYS BIZHAWK</h1>
+    </div>
+    
+    <div class="status-bar">
+      <div id="twitch-status" class="status-badge disconnected">
+        <div class="status-dot"></div>
+        <span>Twitch: Offline</span>
+      </div>
+      <div id="bizhawk-status" class="status-badge disconnected">
+        <div class="status-dot"></div>
+        <span>BizHawk: Offline</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="dashboard-grid">
+    
+    <!-- Left Column: Settings and Controls -->
+    <div class="glass-card left-panel">
+      <div class="card-title">
+        <i data-lucide="settings"></i>
+        <h2>System Configuration</h2>
+      </div>
+      
+      <form id="config-form">
+        <!-- Twitch Setup -->
+        <div class="form-group">
+          <label for="channelName">Twitch Channel</label>
+          <div class="input-wrapper">
+            <i data-lucide="tv"></i>
+            <input type="text" id="channelName" placeholder="e.g., rie_plays" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="botUsername">Bot Username <span style="font-size:0.65rem;color:var(--text-muted)">(Optional)</span></label>
+          <div class="input-wrapper">
+            <i data-lucide="user"></i>
+            <input type="text" id="botUsername" placeholder="e.g., rie_bot">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="twitchOAuthToken">OAuth Token <span style="font-size:0.65rem;color:var(--text-muted)">(Optional)</span></label>
+          <div class="input-wrapper">
+            <i data-lucide="key-round"></i>
+            <input type="password" id="twitchOAuthToken" placeholder="oauth:xxxxx">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="adminUsers">Admin Users <span style="font-size:0.65rem;color:var(--text-muted)">(Comma separated)</span></label>
+          <div class="input-wrapper">
+            <i data-lucide="shield"></i>
+            <input type="text" id="adminUsers" placeholder="e.g., mod1, user2">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="activeConsole">Active Console</label>
+          <div class="input-wrapper" style="display:block;">
+            <i data-lucide="monitor" style="top:12px;"></i>
+            <select id="activeConsole" onchange="updateControllerLayout(this.value)">
+              <option value="nes">Nintendo Entertainment System (NES)</option>
+              <option value="gb">GameBoy (GB)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Cooldown and Frame Adjustments -->
+        <div class="form-group" style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+          <div class="slider-container">
+            <div class="slider-info">
+              <span>Hold Duration</span>
+              <span>How many frames to press</span>
+            </div>
+            <div id="holdFrames-val" class="slider-value">8f</div>
+          </div>
+          <input type="range" id="holdFrames" min="1" max="60" value="8" class="slider-input" oninput="document.getElementById('holdFrames-val').innerText = this.value + 'f'">
+        </div>
+
+        <div class="form-group">
+          <div class="slider-container">
+            <div class="slider-info">
+              <span>Release Gap</span>
+              <span>Frames between presses</span>
+            </div>
+            <div id="releaseFrames-val" class="slider-value">4f</div>
+          </div>
+          <input type="range" id="releaseFrames" min="1" max="30" value="4" class="slider-input" oninput="document.getElementById('releaseFrames-val').innerText = this.value + 'f'">
+        </div>
+
+        <div class="form-group">
+          <div class="slider-container">
+            <div class="slider-info">
+              <span>User Cooldown</span>
+              <span>Spam prevention window</span>
+            </div>
+            <div id="userCooldownSeconds-val" class="slider-value">2s</div>
+          </div>
+          <input type="range" id="userCooldownSeconds" min="0" max="15" value="2" class="slider-input" oninput="document.getElementById('userCooldownSeconds-val').innerText = this.value + 's'">
+        </div>
+
+        <div class="form-group">
+          <div class="slider-container">
+            <div class="slider-info">
+              <span>Vote Period</span>
+              <span>Democracy voting cycle</span>
+            </div>
+            <div id="democracyVoteSeconds-val" class="slider-value">15s</div>
+          </div>
+          <input type="range" id="democracyVoteSeconds" min="5" max="120" value="15" class="slider-input" oninput="document.getElementById('democracyVoteSeconds-val').innerText = this.value + 's'">
+        </div>
+
+        <div class="toggle-wrapper">
+          <div class="slider-info">
+            <span>Twitch Chat Feedback</span>
+            <span>Send messages back to chat</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="sendChatFeedback" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
+          <i data-lucide="save"></i>
+          Save Settings
+        </button>
+      </form>
+    </div>
+
+    <!-- Center Column: Visualizer, Status, Charts -->
+    <div class="main-dashboard-content">
+      
+      <!-- Mini Stats cards -->
+      <div class="stats-grid">
+        <div class="mini-stat-card">
+          <div class="mini-stat-icon">
+            <i data-lucide="zap"></i>
+          </div>
+          <div class="mini-stat-data">
+            <div id="stat-total-inputs" class="mini-stat-val">0</div>
+            <div class="mini-stat-lbl">Total Inputs</div>
+          </div>
+        </div>
+
+        <div class="mini-stat-card">
+          <div class="mini-stat-icon cyan">
+            <i data-lucide="trending-up"></i>
+          </div>
+          <div class="mini-stat-data">
+            <div id="stat-input-rate" class="mini-stat-val">0</div>
+            <div class="mini-stat-lbl">Inputs / Minute</div>
+          </div>
+        </div>
+
+        <div class="mini-stat-card">
+          <div class="mini-stat-icon green">
+            <i data-lucide="users"></i>
+          </div>
+          <div class="mini-stat-data">
+            <div id="stat-active-viewers" class="mini-stat-val">0</div>
+            <div class="mini-stat-lbl">Top Chatters</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Virtual Controller Card -->
+      <div class="glass-card controller-viewer-card">
+        <div class="card-title" style="width:100%;">
+          <i data-lucide="gamepad-2"></i>
+          <h2>Real-Time Emulation Visualizer</h2>
+          <span id="active-user-hud" style="margin-left:auto; font-size:0.8rem; background:rgba(6, 182, 212, 0.15); color:var(--color-cyan); padding:2px 8px; border-radius:4px; font-family:var(--font-mono); font-weight:bold;">STANDBY</span>
+        </div>
+        
+        <!-- Interactive Mock Controller (NES layout by default) -->
+        <div id="controller-body" class="virtual-controller nes">
+          <!-- Nested elements will be generated by JS dynamically -->
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="charts-grid">
+        <div class="glass-card">
+          <div class="card-title">
+            <i data-lucide="bar-chart-3"></i>
+            <h2>Button Distribution</h2>
+          </div>
+          <div style="position: relative; height: 180px; width: 100%;">
+            <canvas id="buttonChart"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div class="card-title">
+            <i data-lucide="crown"></i>
+            <h2>Top Player Standings</h2>
+          </div>
+          <div style="position: relative; height: 180px; width: 100%;">
+            <canvas id="chatterChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Input Queue & Chat Monitor -->
+    <div class="glass-card right-panel">
+      
+      <!-- Toggle Queue Mode -->
+      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <i data-lucide="list-ordered"></i>
+          <h2>Input Stream Queue</h2>
+        </div>
+        
+        <!-- Premium Anarchy vs Democracy Toggle Switch -->
+        <div class="queue-toggle-container" style="display:flex; align-items:center; gap:0.5rem; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.05); padding:4px 12px; border-radius:30px;">
+          <span id="label-anarchy" style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--color-cyan); letter-spacing:0.5px; transition:var(--transition);">Anarchy</span>
+          <label class="toggle-switch" style="margin:0 4px;">
+            <input type="checkbox" id="queue-mode-toggle" onchange="toggleQueueMode(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="label-democracy" style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--text-muted); letter-spacing:0.5px; transition:var(--transition);">Democracy</span>
+        </div>
+      </div>
+
+      <!-- Queue Display Container -->
+      <div class="queue-container" style="flex-grow:0; margin-bottom:1.5rem;">
+        <!-- Dynamic Anarchy Queue List -->
+        <div id="anarchy-queue" class="queue-list">
+          <div style="color:var(--text-muted); text-align:center; padding:2rem 0; font-size:0.9rem;">Queue is empty. Awaiting inputs...</div>
+        </div>
+
+        <!-- Dynamic Democracy Vote HUD -->
+        <div id="democracy-vote" class="democracy-container" style="display:none;">
+          <div class="vote-timer-card">
+            <span>Next Input Selected In:</span>
+            <div id="democracy-time" class="vote-timer">15s</div>
+          </div>
+          <div id="democracy-votes-list" style="display:flex; flex-direction:column; max-height:180px; overflow-y:auto; padding-right:5px;">
+            <div style="color:var(--text-muted); text-align:center; padding:1.5rem 0; font-size:0.9rem;">No active votes yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Monitor Panel -->
+      <div class="card-title" style="display:flex; align-items:center; justify-content:space-between; border-top:1px solid var(--border-color); padding-top:1rem; margin-bottom:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <i data-lucide="message-square"></i>
+          <h2>Twitch Live Monitor</h2>
+        </div>
+        
+        <!-- Filter command checkbox -->
+        <label style="display:flex; align-items:center; gap:0.25rem; font-size:0.75rem; color:var(--text-secondary); cursor:pointer;">
+          <input type="checkbox" id="chat-filter-cmds" style="width:auto; cursor:pointer;" onchange="toggleChatFilter()">
+          <span>Commands Only</span>
+        </label>
+      </div>
+
+      <div class="chat-container">
+        <div id="chat-messages" class="chat-messages">
+          <div style="color:var(--text-muted); text-align:center; padding:2rem 0; font-size:0.9rem;">Awaiting Twitch Chat connection...</div>
+        </div>
+      </div>
+      
+      <!-- Pause / Resume overlay buttons for Admin -->
+      <div style="display:flex; gap:10px; margin-top:1rem;">
+        <button id="admin-pause-btn" class="btn btn-secondary" onclick="sendAdminControl('pause')">
+          <i data-lucide="pause"></i> Pause Emulation
+        </button>
+        <button id="admin-clear-btn" class="btn btn-danger" onclick="sendAdminControl('clear')">
+          <i data-lucide="trash-2"></i> Clear Queue
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Web Socket & Interface Logic -->
+  <script>
+    let ws = null;
+    let buttonChart = null;
+    let chatterChart = null;
+    let currentConsole = "nes";
+    let filterCommands = false;
+    let totalViewersRecorded = new Set();
+
+    // Lucide Icons initialization
+    lucide.createIcons();
+
+    // Chart layouts
+    function initCharts() {
+      // Button Press Distribution Chart
+      const ctxBtn = document.getElementById('buttonChart').getContext('2d');
+      buttonChart = new Chart(ctxBtn, {
+        type: 'bar',
+        data: {
+          labels: ['A', 'B', 'Up', 'Down', 'Left', 'Right', 'Start', 'Select'],
+          datasets: [{
+            label: 'Presses',
+            data: [0, 0, 0, 0, 0, 0, 0, 0],
+            backgroundColor: 'rgba(6, 182, 212, 0.4)',
+            borderColor: 'rgba(6, 182, 212, 1)',
+            borderWidth: 2,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { family: 'Outfit' } } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { precision: 0, color: '#9ca3af', font: { family: 'Outfit' } } }
+          }
+        }
+      });
+
+      // Leaderboard Standing Chart
+      const ctxChatter = document.getElementById('chatterChart').getContext('2d');
+      chatterChart = new Chart(ctxChatter, {
+        type: 'doughnut',
+        data: {
+          labels: ['Awaiting inputs...'],
+          datasets: [{
+            data: [1],
+            backgroundColor: ['rgba(168, 85, 247, 0.4)'],
+            borderColor: ['rgba(168, 85, 247, 1)'],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#9ca3af', font: { family: 'Outfit', size: 10 } }
+            }
+          },
+          cutout: '70%'
+        }
+      });
+    }
+
+    // Connect to Companion WebSocket
+    function connectWebSocket() {
+      const loc = window.location;
+      let wsUri = loc.protocol === "https:" ? "wss:" : "ws:";
+      wsUri += "//" + loc.host;
+
+      console.log("Connecting to WebSocket: " + wsUri);
+      ws = new WebSocket(wsUri);
+
+      ws.onopen = () => {
+        console.log("WebSocket connection established!");
+        showToast("Connected to Companion Server", "success");
+      };
+
+      ws.onmessage = (event) => {
+        const packet = JSON.parse(event.data);
+        const { type, data } = packet;
+
+        switch (type) {
+          case 'config_updated':
+            updateConfigForm(data);
+            break;
+          case 'queue_updated':
+            renderQueue(data);
+            break;
+          case 'status_updated':
+            renderStatus(data);
+            break;
+          case 'stats_updated':
+            renderStats(data);
+            break;
+          case 'chat_message':
+            appendChatMessage(data);
+            break;
+          case 'input_pressed':
+            animateControllerPress(data);
+            break;
+        }
+      };
+
+      ws.onclose = () => {
+        console.warn("WebSocket closed. Attempting reconnect in 3 seconds...");
+        renderStatus({ twitchConnected: false, bizhawkConnected: false, isPaused: false });
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("WebSocket error: ", err);
+      };
+    }
+
+    // Populate Settings UI Form
+    function updateConfigForm(cfg) {
+      document.getElementById('channelName').value = cfg.channelName || "";
+      document.getElementById('botUsername').value = cfg.botUsername || "";
+      document.getElementById('twitchOAuthToken').value = cfg.twitchOAuthToken || "";
+      document.getElementById('adminUsers').value = (cfg.adminUsers || []).join(', ');
+      document.getElementById('activeConsole').value = cfg.activeConsole || "nes";
+      
+      // Sliders & Values
+      document.getElementById('holdFrames').value = cfg.holdFrames;
+      document.getElementById('holdFrames-val').innerText = cfg.holdFrames + "f";
+      
+      document.getElementById('releaseFrames').value = cfg.releaseFrames;
+      document.getElementById('releaseFrames-val').innerText = cfg.releaseFrames + "f";
+      
+      document.getElementById('userCooldownSeconds').value = cfg.userCooldownSeconds;
+      document.getElementById('userCooldownSeconds-val').innerText = cfg.userCooldownSeconds + "s";
+      
+      document.getElementById('democracyVoteSeconds').value = cfg.democracyVoteSeconds;
+      document.getElementById('democracyVoteSeconds-val').innerText = cfg.democracyVoteSeconds + "s";
+      
+      document.getElementById('sendChatFeedback').checked = cfg.sendChatFeedback;
+
+      if (cfg.activeConsole !== currentConsole) {
+        updateControllerLayout(cfg.activeConsole);
+      }
+    }
+
+    // Save configuration settings
+    function saveConfiguration(event) {
+      event.preventDefault();
+      
+      const adminUsersStr = document.getElementById('adminUsers').value;
+      const adminUsers = adminUsersStr.split(',').map(s => s.trim()).filter(Boolean);
+
+      const payload = {
+        channelName: document.getElementById('channelName').value.trim(),
+        botUsername: document.getElementById('botUsername').value.trim(),
+        twitchOAuthToken: document.getElementById('twitchOAuthToken').value.trim(),
+        adminUsers: adminUsers,
+        activeConsole: document.getElementById('activeConsole').value,
+        holdFrames: parseInt(document.getElementById('holdFrames').value, 10),
+        releaseFrames: parseInt(document.getElementById('releaseFrames').value, 10),
+        userCooldownSeconds: parseInt(document.getElementById('userCooldownSeconds').value, 10),
+        democracyVoteSeconds: parseInt(document.getElementById('democracyVoteSeconds').value, 10),
+        sendChatFeedback: document.getElementById('sendChatFeedback').checked
+      };
+
+      fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          showToast("Configuration saved successfully", "success");
+        } else {
+          showToast("Failed to save configuration", "error");
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        showToast("Network error saving configuration", "error");
+      });
+    }
+
+    // Handle Quick Admin Commands
+    function sendAdminControl(action) {
+      let msg = "";
+      if (action === 'pause') {
+        const isCurrentlyPaused = document.getElementById('admin-pause-btn').innerHTML.includes("Resume");
+        msg = isCurrentlyPaused ? "!resume" : "!pause";
+      } else if (action === 'clear') {
+        msg = "!clear";
+      }
+      
+      // Simulate/trigger admin action by calling local server
+      fetch('/api/config')
+        .then(res => res.json())
+        .then(cfg => {
+          if (!cfg.channelName) {
+            showToast("Channel name must be set to issue commands!", "error");
+            return;
+          }
+          
+          // Construct admin command payload
+          fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            // Just request toggle pause
+            body: JSON.stringify({ 
+              queueMode: cfg.queueMode // preserve
+            })
+          });
+
+          // Post to Twitch chat via tmi.js by trigger
+          // For immediate mock testing, we execute action.
+          // Since server parses admin actions from Twitch chat, we can just trigger it!
+          // But to be secure and reliable, we'll let the user type in chat or handle in server.
+          // Wait, in server.js we can expose an API or mock an admin trigger. Let's make an admin websocket invoke.
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'admin_control', data: { action } }));
+          }
+        });
+    }
+
+    // We can handle the local admin override by sending a message over websocket,
+    // let's update server.js in background if needed. Actually, server.js handles admin commands from Twitch.
+    // Let's add direct local API trigger in server.js or let the dashboard just POST config changes.
+    // If the streamer clicks Pause, we can simply POST the `isPaused` property!
+    // Wait, let's look at server.js: the Express endpoint doesn't directly expose `isPaused` in POST /api/config.
+    // We can add it! Wait, we can implement it nicely. Let's make the dashboard call `/api/config` with updated parameters,
+    // or let server.js expose admin overrides.
+    // Let's implement dynamic dashboard API triggers. Actually, let's see how the local buttons can send HTTP requests:
+    // We can add a simple HTTP POST to `/api/admin` in server.js! That's super clean and secure locally.
+    // Wait! Let's check if the server already has a WS handler for admin controls.
+    // Let's write the local triggers nicely in JS.
+    // To support admin control instantly, we can make the dashboard perform a POST request:
+    // Let's check how the UI pause button behaves.
+    // Let's add a small API route in server.js if needed.
+    // Alternatively, the dashboard can simulate typing an admin message, or we can just send it to a local endpoint!
+    // Let's make a call to `POST /api/admin` with `{ command: "pause" }`.
+    // Let's make sure it handles it. We will write the javascript to perform the fetch:
+    function triggerLocalAdmin(cmdStr) {
+      fetch('/api/config')
+        .then(res => res.json())
+        .then(cfg => {
+          // Let's send a post directly
+          fetch('/api/admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: cmdStr, user: 'dashboard_admin' })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              showToast(data.message, "info");
+            }
+          })
+          .catch(e => {
+            // Fallback: If server.js /api/admin doesn't exist, we can implement it! We will add it to server.js in a moment.
+            console.error("Local admin failed: ", e);
+          });
+        });
+    }
+    
+    // Bind click handlers to local admin commands
+    window.sendAdminControl = function(action) {
+      if (action === 'pause') {
+        const btn = document.getElementById('admin-pause-btn');
+        const isPausedVal = btn.innerText.includes("Resume");
+        triggerLocalAdmin(isPausedVal ? 'resume' : 'pause');
+      } else if (action === 'clear') {
+        triggerLocalAdmin('clear');
+      }
+    };
+
+    // Render Connection status
+    function renderStatus(st) {
+      const tBadge = document.getElementById('twitch-status');
+      const bBadge = document.getElementById('bizhawk-status');
+
+      if (st.twitchConnected) {
+        tBadge.className = "status-badge connected";
+        tBadge.querySelector('span').innerText = "Twitch: Connected";
+      } else {
+        tBadge.className = "status-badge disconnected";
+        tBadge.querySelector('span').innerText = "Twitch: Offline";
+      }
+
+      if (st.bizhawkConnected) {
+        bBadge.className = "status-badge connected";
+        bBadge.querySelector('span').innerText = "BizHawk: Connected";
+      } else {
+        bBadge.className = "status-badge disconnected";
+        bBadge.querySelector('span').innerText = "BizHawk: Offline";
+      }
+
+      // Update local Pause/Resume button state
+      const pauseBtn = document.getElementById('admin-pause-btn');
+      if (st.isPaused) {
+        pauseBtn.className = "btn btn-primary"; // glowing purple
+        pauseBtn.innerHTML = '<i data-lucide="play"></i> Resume Emulation';
+      } else {
+        pauseBtn.className = "btn btn-secondary";
+        pauseBtn.innerHTML = '<i data-lucide="pause"></i> Pause Emulation';
+      }
+      lucide.createIcons();
+    }
+
+    // Render Queue Items and Democracy Fills
+    function renderQueue(data) {
+      const anarchyQueue = document.getElementById('anarchy-queue');
+      const democracyVote = document.getElementById('democracy-vote');
+      
+      // Update interactive toggle state and glow colors
+      const toggle = document.getElementById('queue-mode-toggle');
+      const labelAnarchy = document.getElementById('label-anarchy');
+      const labelDemocracy = document.getElementById('label-democracy');
+      
+      if (data.mode === 'democracy') {
+        toggle.checked = true;
+        labelAnarchy.style.color = 'var(--text-muted)';
+        labelDemocracy.style.color = 'var(--color-purple)';
+        
+        anarchyQueue.style.display = 'none';
+        democracyVote.style.display = 'flex';
+
+        // Update timer
+        document.getElementById('democracy-time').innerText = data.timeRemaining + "s";
+
+        // Render vote lists
+        const voteList = document.getElementById('democracy-votes-list');
+        voteList.innerHTML = "";
+
+        const votesArray = Object.entries(data.votes).sort((a,b) => b[1] - a[1]);
+        const totalVotes = votesArray.reduce((acc, curr) => acc + curr[1], 0) || 1;
+
+        if (votesArray.length === 0) {
+          voteList.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:1.5rem 0; font-size:0.9rem;">No active votes yet.</div>';
+          return;
+        }
+
+        votesArray.forEach(([cmd, count]) => {
+          const percentage = Math.round((count / totalVotes) * 100);
+          
+          const barItem = document.createElement('div');
+          barItem.className = "vote-bar-item";
+          barItem.innerHTML = `
+            <div class="vote-bar-header">
+              <span style="font-family:var(--font-mono); font-weight:bold; color:var(--color-cyan); text-transform:uppercase;">${cmd}</span>
+              <span style="color:var(--text-secondary);">${count} votes (${percentage}%)</span>
+            </div>
+            <div class="vote-bar-fill-container">
+              <div class="vote-bar-fill" style="width: ${percentage}%"></div>
+            </div>
+          `;
+          voteList.appendChild(barItem);
+        });
+
+      } else {
+        // Anarchy Queue
+        toggle.checked = false;
+        labelAnarchy.style.color = 'var(--color-cyan)';
+        labelDemocracy.style.color = 'var(--text-muted)';
+        
+        anarchyQueue.style.display = 'flex';
+        democracyVote.style.display = 'none';
+
+        anarchyQueue.innerHTML = "";
+
+        if (!data.queue || data.queue.length === 0) {
+          anarchyQueue.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:2rem 0; font-size:0.9rem;">Queue is empty. Awaiting inputs...</div>';
+          return;
+        }
+
+        data.queue.forEach((item, index) => {
+          const itemEl = document.createElement('div');
+          itemEl.className = "queue-item";
+          if (index === 0) {
+            itemEl.style.borderColor = "var(--color-purple)";
+            itemEl.style.background = "rgba(168, 85, 247, 0.05)";
+          }
+          itemEl.innerHTML = `
+            <span class="queue-cmd">${item.command}</span>
+            <span class="queue-user">by @${item.user}</span>
+          `;
+          anarchyQueue.appendChild(itemEl);
+        });
+      }
+    }
+
+    // Render stats and graphs
+    function renderStats(st) {
+      document.getElementById('stat-total-inputs').innerText = st.totalInputs.toLocaleString();
+      document.getElementById('stat-input-rate').innerText = st.inputRate;
+      
+      // Calculate top chatters list
+      const topChatters = Object.entries(st.topChatters).sort((a,b) => b[1] - a[1]);
+      document.getElementById('stat-active-viewers').innerText = topChatters.length;
+
+      // Update Button Chart
+      const btnLabels = ['a', 'b', 'up', 'down', 'left', 'right', 'start', 'select'];
+      const btnCounts = btnLabels.map(lbl => st.buttonsPressed[lbl] || 0);
+      
+      buttonChart.data.datasets[0].data = btnCounts;
+      buttonChart.update();
+
+      // Update Chatter Chart
+      if (topChatters.length > 0) {
+        const top5 = topChatters.slice(0, 5);
+        chatterChart.data.labels = top5.map(c => '@' + c[0]);
+        chatterChart.data.datasets[0].data = top5.map(c => c[1]);
+        
+        // Custom color schemes
+        chatterChart.data.datasets[0].backgroundColor = [
+          'rgba(168, 85, 247, 0.6)', // purple
+          'rgba(6, 182, 212, 0.6)',  // cyan
+          'rgba(16, 185, 129, 0.6)', // green
+          'rgba(245, 158, 11, 0.6)', // yellow
+          'rgba(239, 68, 68, 0.6)'   // red
+        ];
+        chatterChart.data.datasets[0].borderColor = [
+          '#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'
+        ];
+      } else {
+        chatterChart.data.labels = ['Awaiting inputs...'];
+        chatterChart.data.datasets[0].data = [1];
+      }
+      chatterChart.update();
+    }
+
+    // Toggle Chat Filter
+    function toggleChatFilter() {
+      filterCommands = document.getElementById('chat-filter-cmds').checked;
+      const chatMessages = document.getElementById('chat-messages');
+      const messages = chatMessages.querySelectorAll('.chat-item');
+      
+      messages.forEach(msg => {
+        if (filterCommands && !msg.classList.contains('command')) {
+          msg.style.display = 'none';
+        } else {
+          msg.style.display = 'flex';
+        }
+      });
+    }
+
+    // Append message to Chat Feed monitor
+    function appendChatMessage(data) {
+      const chatMessages = document.getElementById('chat-messages');
+      
+      // If we are at the default state, clear it
+      if (chatMessages.innerHTML.includes("Awaiting Twitch Chat")) {
+        chatMessages.innerHTML = "";
+      }
+
+      // Check if user is broadcaster or mod
+      let badgesHtml = "";
+      if (data.badge) {
+        if (data.badge.broadcaster === '1') {
+          badgesHtml += `<span class="chat-badge-broadcaster">Broadcaster</span>`;
+        } else if (data.badge.moderator === '1' || data.badge.mod === '1') {
+          badgesHtml += `<span class="chat-badge-mod">Mod</span>`;
+        }
+      }
+
+      const item = document.createElement('div');
+      item.className = "chat-item";
+      
+      const adminPrefix = '!'; // Local reference
+      const isAdminCommand = data.message.startsWith(adminPrefix);
+
+      if (data.isCommand) {
+        item.classList.add('command');
+      }
+      if (isAdminCommand) {
+        item.classList.add('admin');
+      }
+
+      // Hide if filtered
+      if (filterCommands && !data.isCommand) {
+        item.style.display = 'none';
+      }
+
+      const date = new Date();
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      item.innerHTML = `
+        <div class="chat-meta">
+          <div>
+            ${badgesHtml}
+            <span class="chat-user">${data.user}</span>
+          </div>
+          <span class="chat-time">${timeStr}</span>
+        </div>
+        <div class="chat-text">${escapeHtml(data.message)}</div>
+      `;
+
+      chatMessages.appendChild(item);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      // Keep only 50 messages
+      if (chatMessages.childElementCount > 50) {
+        chatMessages.removeChild(chatMessages.firstChild);
+      }
+    }
+
+    // Set dynamic virtual controller layouts
+    function updateControllerLayout(type) {
+      currentConsole = type;
+      const container = document.getElementById('controller-body');
+      container.className = `virtual-controller ${type}`;
+
+      if (type === 'gb') {
+        container.innerHTML = `
+          <div class="gb-screen-bezel">
+            <div class="gb-screen">
+              <div style="font-size:0.6rem; color:#0f380f; margin-bottom:5px;">TWITCH PLAYS GB</div>
+              <div id="lcd-line1" style="font-size:0.8rem; letter-spacing:0.5px;">STANDBY</div>
+              <div id="lcd-line2" style="font-size:0.65rem; color:#306230; margin-top:2px;">READY TO PLAY</div>
+            </div>
+          </div>
+          <div class="gb-controls">
+            <div class="v-dpad">
+              <div id="btn-up" class="v-dpad-btn v-dpad-up"></div>
+              <div id="btn-down" class="v-dpad-btn v-dpad-down"></div>
+              <div id="btn-left" class="v-dpad-btn v-dpad-left"></div>
+              <div id="btn-right" class="v-dpad-btn v-dpad-right"></div>
+              <div class="v-dpad-center"></div>
+            </div>
+            <div class="v-buttons">
+              <div class="v-sys-btn-wrapper" style="flex-direction:row-reverse; gap:10px;">
+                <div id="btn-b" class="v-btn">B</div>
+                <div id="btn-a" class="v-btn">A</div>
+              </div>
+            </div>
+            <div class="v-system-buttons">
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-select" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Select</span>
+              </div>
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-start" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Start</span>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        // NES Layout
+        container.innerHTML = `
+          <div class="nes-bezel">
+            <div class="v-dpad">
+              <div id="btn-up" class="v-dpad-btn v-dpad-up"></div>
+              <div id="btn-down" class="v-dpad-btn v-dpad-down"></div>
+              <div id="btn-left" class="v-dpad-btn v-dpad-left"></div>
+              <div id="btn-right" class="v-dpad-btn v-dpad-right"></div>
+              <div class="v-dpad-center"></div>
+            </div>
+            <div class="v-system-buttons">
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-select" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Select</span>
+              </div>
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-start" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Start</span>
+              </div>
+            </div>
+            <div class="v-buttons">
+              <div id="btn-b" class="v-btn">B</div>
+              <div id="btn-a" class="v-btn">A</div>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Bind clickable listeners to newly created DOM controller buttons
+      bindControllerClickEvents();
+    }
+
+    // Toggle Queue Mode handler
+    function toggleQueueMode(isDemocracy) {
+      const mode = isDemocracy ? 'democracy' : 'anarchy';
+      
+      fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: `mode ${mode}`, user: 'dashboard_admin' })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showToast(`Queue mode changed to [ ${mode.toUpperCase()} ]`, "success");
+        } else {
+          showToast("Failed to change queue mode", "error");
+        }
+      })
+      .catch(err => {
+        console.error("Queue toggle failed:", err);
+        showToast("Error toggling queue mode", "error");
+      });
+    }
+
+    // Bind click events to virtual controller buttons to send them to the emulator!
+    function bindControllerClickEvents() {
+      const container = document.getElementById('controller-body');
+      if (!container) return;
+      
+      const buttons = container.querySelectorAll('.v-dpad-btn, .v-btn, .v-sys-btn');
+      
+      buttons.forEach(btn => {
+        // Style as clickable
+        btn.style.cursor = 'pointer';
+        
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const btnId = btn.id; // e.g. "btn-up"
+          const btnName = btnId.replace('btn-', ''); // e.g. "up"
+          
+          console.log(`Virtual controller clicked: ${btnName}`);
+          
+          // Send mock input to backend
+          fetch('/api/mock_chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user: 'Streamer',
+              message: btnName,
+              badges: { broadcaster: '1' } // Admin privilege bypass
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              showToast(`Injected Button: [ ${btnName.toUpperCase()} ]`, "success");
+            }
+          })
+          .catch(err => {
+            console.error("Failed to inject virtual button press:", err);
+            showToast("Failed to inject button press", "error");
+          });
+        });
+      });
+    }
+
+    // Animate Button Presses when active in BizHawk
+    function animateControllerPress(data) {
+      // 1. Update text LCD Screen (if GameBoy) or HUD indicator
+      const activeHud = document.getElementById('active-user-hud');
+      activeHud.innerText = `@${data.user}: ${data.command}`.toUpperCase();
+      
+      if (currentConsole === 'gb') {
+        const lcdLine1 = document.getElementById('lcd-line1');
+        const lcdLine2 = document.getElementById('lcd-line2');
+        if (lcdLine1) lcdLine1.innerText = data.command.toUpperCase();
+        if (lcdLine2) lcdLine2.innerText = `BY @${data.user}`.toUpperCase();
+      }
+
+      // 2. Flash controller buttons
+      const buttonsMap = data.buttons;
+      
+      // Release all buttons first
+      const allButtons = document.querySelectorAll('.v-dpad-btn, .v-btn, .v-sys-btn');
+      allButtons.forEach(btn => btn.classList.remove('pressed'));
+
+      // Highlight active buttons
+      for (const [key, pressed] of Object.entries(buttonsMap)) {
+        if (!pressed) continue;
+        const btnName = key.replace('P1 ', '').toLowerCase(); // e.g. "P1 Up" -> "up"
+        const btnElement = document.getElementById(`btn-${btnName}`);
+        
+        if (btnElement) {
+          btnElement.classList.add('pressed');
+          
+          // Remove highlight after a brief interval corresponding to key hold
+          setTimeout(() => {
+            btnElement.classList.remove('pressed');
+          }, 250);
+        }
+      }
+    }
+
+    // Toast Alert Helper
+    function showToast(message, type = "info") {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      
+      let icon = "info";
+      if (type === "success") icon = "check-circle";
+      if (type === "error") icon = "alert-triangle";
+
+      toast.innerHTML = `
+        <i data-lucide="${icon}"></i>
+        <span>${message}</span>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => {
+          container.removeChild(toast);
+        }, 300);
+      }, 3000);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Run on startup
+    initCharts();
+    updateControllerLayout("nes");
+    connectWebSocket();
+
+    // Bind form submission dynamically to avoid inline handler scoping issues
+    document.getElementById('config-form').addEventListener('submit', saveConfiguration);
+  </script>
+</body>
+</html>

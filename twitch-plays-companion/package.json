@@ -1,0 +1,25 @@
+{
+  "name": "twitch-plays-bizhawk-companion",
+  "version": "1.0.0",
+  "description": "Companion server and dashboard for BizHawk 2.11.1 Twitch Plays integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node automated_tests/test_server_api.js"
+  },
+  "keywords": [
+    "twitch",
+    "plays",
+    "bizhawk",
+    "emulator",
+    "lua"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "tmi.js": "^1.8.5",
+    "ws": "^8.18.0"
+  }
+}

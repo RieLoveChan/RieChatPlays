@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twitch Plays BizHawk - OBS Stream Overlay</title>
+  <!-- Lucide Icons for vector glyphs -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Styling for OBS Overlay */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap');
+
+    :root {
+      --color-purple: #a855f7;
+      --color-cyan: #06b6d4;
+      --color-green: #10b981;
+      --color-red: #ef4444;
+      
+      --font-sans: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: transparent; /* Transparent for OBS Browser Source */
+      color: #fff;
+      font-family: var(--font-sans);
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 30px;
+    }
+
+    /* scrolling stream feed HUD */
+    .overlay-hud {
+      width: 320px;
+      height: 380px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 10px;
+      overflow: hidden;
+      mask-image: linear-gradient(to top, black 80%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to top, black 80%, transparent 100%);
+    }
+
+    .hud-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(10, 11, 16, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 8px;
+      padding: 10px 14px;
+      animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+    }
+
+    .hud-avatar-placeholder {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--color-purple), var(--color-cyan));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #fff;
+      text-transform: uppercase;
+      box-shadow: 0 0 8px rgba(168, 85, 247, 0.4);
+    }
+
+    .hud-details {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .hud-user {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #e5e7eb;
+    }
+
+    .hud-cmd {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 5px rgba(6, 182, 212, 0.4);
+    }
+
+    /* Virtual Controllers HUD */
+    .controller-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .virtual-controller {
+      position: relative;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+      transform-origin: bottom right;
+      transform: scale(1.15);
+    }
+
+    /* GAMEBOY LAYOUT */
+    .virtual-controller.gb {
+      width: 250px;
+      height: 400px;
+      background: #c2c3c9;
+      border-radius: 12px 12px 60px 12px;
+      border: 4px solid #8e8f96;
+    }
+
+    .gb-screen-bezel {
+      width: 210px;
+      height: 140px;
+      background: #77787c;
+      margin: 18px auto 10px auto;
+      border-radius: 6px;
+      padding: 12px;
+      position: relative;
+    }
+
+    .gb-screen {
+      width: 100%;
+      height: 100%;
+      background: #8b956d;
+      border: 3px solid #555c3f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #0f380f;
+      font-weight: bold;
+      text-align: center;
+      flex-direction: column;
+    }
+
+    .gb-controls {
+      margin-top: 30px;
+      position: relative;
+      height: 160px;
+    }
+
+    /* NES LAYOUT */
+    .virtual-controller.nes {
+      width: 360px;
+      height: 150px;
+      background: #d3d3d3;
+      border: 5px solid #4a4b4e;
+      border-radius: 6px;
+      padding: 8px;
+    }
+
+    .nes-bezel {
+      width: 100%;
+      height: 100%;
+      border: 3px solid #ef4444;
+      border-radius: 3px;
+      background: #111;
+      display: flex;
+      padding: 8px;
+      position: relative;
+    }
+
+    /* Common Button Controls */
+    .v-dpad {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      top: 15px;
+      left: 15px;
+    }
+
+    .v-dpad-btn {
+      position: absolute;
+      background: #222;
+      border: 2px solid #111;
+      transition: background 0.05s;
+    }
+
+    .v-dpad-btn.pressed {
+      background: var(--color-cyan);
+      box-shadow: 0 0 15px var(--color-cyan);
+      border-color: var(--color-cyan);
+    }
+
+    .v-dpad-up { width: 26px; height: 28px; left: 27px; top: 0; border-radius: 3px 3px 0 0; }
+    .v-dpad-down { width: 26px; height: 28px; left: 27px; top: 52px; border-radius: 0 0 3px 3px; }
+    .v-dpad-left { width: 28px; height: 26px; left: 0; top: 27px; border-radius: 3px 0 0 3px; }
+    .v-dpad-right { width: 28px; height: 26px; left: 52px; top: 27px; border-radius: 0 3px 3px 0; }
+    .v-dpad-center { width: 26px; height: 26px; left: 27px; top: 27px; background: #222; border: none; }
+
+    .v-buttons {
+      position: absolute;
+      right: 15px;
+      top: 25px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .gb .v-buttons {
+      transform: rotate(-25deg);
+      top: 30px;
+      right: 12px;
+    }
+
+    .v-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #b91c1c;
+      border: 3px solid #7f1d1d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.85);
+      font-family: var(--font-sans);
+      font-weight: 800;
+      font-size: 0.85rem;
+      box-shadow: 0 3px 0 #7f1d1d;
+      transition: transform 0.05s, box-shadow 0.05s, background 0.05s;
+    }
+
+    .v-btn.pressed {
+      background: var(--color-purple);
+      border-color: #6b21a8;
+      box-shadow: 0 0px 0 #6b21a8, 0 0 15px var(--color-purple);
+      transform: translateY(3px);
+      color: #fff;
+    }
+
+    .v-system-buttons {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+    }
+
+    .v-sys-btn-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .v-sys-btn-lbl {
+      font-size: 0.55rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #555;
+    }
+
+    .v-sys-btn {
+      width: 36px;
+      height: 10px;
+      background: #555;
+      border-radius: 5px;
+      border: 1px solid #333;
+      transition: background 0.05s;
+    }
+
+    .v-sys-btn.pressed {
+      background: var(--color-cyan);
+      box-shadow: 0 0 10px var(--color-cyan);
+      border-color: var(--color-cyan);
+    }
+
+    /* NES INDIVIDUAL PLACEMENT */
+    .nes .v-dpad {
+      position: relative;
+      left: 0;
+      top: 12px;
+    }
+
+    .nes .v-system-buttons {
+      position: relative;
+      bottom: 0;
+      left: 0;
+      transform: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-grow: 1;
+    }
+
+    .nes .v-buttons {
+      position: relative;
+      right: 0;
+      top: 12px;
+      gap: 12px;
+    }
+
+    .nes .v-btn {
+      width: 36px;
+      height: 36px;
+      background: #b91c1c;
+      border: 3px solid #7f1d1d;
+      box-shadow: 0 2px 0 #7f1d1d;
+    }
+
+    .nes .v-btn.pressed {
+      box-shadow: 0 0px 0 #6b21a8, 0 0 15px var(--color-purple);
+      transform: translateY(2px);
+    }
+
+    /* Keyframes Animations */
+    @keyframes popIn {
+      0% {
+        transform: translateY(20px) scale(0.8);
+        opacity: 0;
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeOut {
+      0% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+
+    .hud-item.exit {
+      animation: fadeOut 0.4s forwards cubic-bezier(0.4, 0, 1, 1);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Left: Scrolling Feed overlay -->
+  <div id="hud-feed" class="overlay-hud">
+    <!-- Active presses slide up here -->
+  </div>
+
+  <!-- Right: Glowing Virtual Controller -->
+  <div class="controller-container">
+    <div id="controller-body" class="virtual-controller nes">
+      <!-- Layout loaded dynamically based on query params -->
+    </div>
+  </div>
+
+  <!-- WebSocket Listener & Layout script -->
+  <script>
+    let ws = null;
+    let activeConsole = "nes";
+    let showQueue = true;
+
+    // Parse configuration from Query String parameters
+    // e.g., ?controller=gb&showqueue=false
+    function parseQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('controller')) {
+        activeConsole = params.get('controller').toLowerCase();
+      }
+      if (params.has('showqueue')) {
+        showQueue = params.get('showqueue') === 'true';
+      }
+      
+      if (!showQueue) {
+        document.getElementById('hud-feed').style.display = 'none';
+      }
+    }
+
+    // Build virtual controller in document
+    function loadControllerHTML() {
+      const container = document.getElementById('controller-body');
+      container.className = `virtual-controller ${activeConsole}`;
+
+      if (activeConsole === 'gb') {
+        container.innerHTML = `
+          <div class="gb-screen-bezel">
+            <div class="gb-screen">
+              <div style="font-size:0.5rem; color:#0f380f; margin-bottom:4px;">TWITCH PLAYS</div>
+              <div id="lcd-overlay-cmd" style="font-size:0.75rem; letter-spacing:0.5px;">READY</div>
+              <div id="lcd-overlay-user" style="font-size:0.55rem; color:#306230; margin-top:2px;">ANARCHY</div>
+            </div>
+          </div>
+          <div class="gb-controls">
+            <div class="v-dpad">
+              <div id="btn-up" class="v-dpad-btn v-dpad-up"></div>
+              <div id="btn-down" class="v-dpad-btn v-dpad-down"></div>
+              <div id="btn-left" class="v-dpad-btn v-dpad-left"></div>
+              <div id="btn-right" class="v-dpad-btn v-dpad-right"></div>
+              <div class="v-dpad-center"></div>
+            </div>
+            <div class="v-buttons">
+              <div id="btn-b" class="v-btn">B</div>
+              <div id="btn-a" class="v-btn">A</div>
+            </div>
+            <div class="v-system-buttons">
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-select" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Select</span>
+              </div>
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-start" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Start</span>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        // NES
+        container.innerHTML = `
+          <div class="nes-bezel">
+            <div class="v-dpad">
+              <div id="btn-up" class="v-dpad-btn v-dpad-up"></div>
+              <div id="btn-down" class="v-dpad-btn v-dpad-down"></div>
+              <div id="btn-left" class="v-dpad-btn v-dpad-left"></div>
+              <div id="btn-right" class="v-dpad-btn v-dpad-right"></div>
+              <div class="v-dpad-center"></div>
+            </div>
+            <div class="v-system-buttons">
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-select" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Select</span>
+              </div>
+              <div class="v-sys-btn-wrapper">
+                <div id="btn-start" class="v-sys-btn"></div>
+                <span class="v-sys-btn-lbl">Start</span>
+              </div>
+            </div>
+            <div class="v-buttons">
+              <div id="btn-b" class="v-btn">B</div>
+              <div id="btn-a" class="v-btn">A</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Connect to WebSocket server for telemetry
+    function connectWS() {
+      const loc = window.location;
+      let wsUri = loc.protocol === "https:" ? "wss:" : "ws:";
+      wsUri += "//" + loc.host;
+
+      console.log("Overlay WebSocket loading: " + wsUri);
+      ws = new WebSocket(wsUri);
+
+      ws.onopen = () => {
+        console.log("Overlay telemetry connected!");
+      };
+
+      ws.onmessage = (event) => {
+        const packet = JSON.parse(event.data);
+        const { type, data } = packet;
+
+        if (type === 'config_updated') {
+          // If query param doesn't force controller, inherit server active console
+          const params = new URLSearchParams(window.location.search);
+          if (!params.has('controller') && data.activeConsole !== activeConsole) {
+            activeConsole = data.activeConsole;
+            loadControllerHTML();
+          }
+        } else if (type === 'input_pressed') {
+          // Trigger overlay animation
+          triggerKeyPressAnimation(data);
+          
+          if (showQueue) {
+            pushToHudFeed(data.user, data.command);
+          }
+        }
+      };
+
+      ws.onclose = () => {
+        setTimeout(connectWS, 3000);
+      };
+    }
+
+    // Light up overlay buttons
+    function triggerKeyPressAnimation(data) {
+      // LCD texts
+      if (activeConsole === 'gb') {
+        const lcdCmd = document.getElementById('lcd-overlay-cmd');
+        const lcdUser = document.getElementById('lcd-overlay-user');
+        if (lcdCmd) lcdCmd.innerText = data.command.toUpperCase();
+        if (lcdUser) lcdUser.innerText = `@${data.user}`.toUpperCase();
+      }
+
+      // Flash keys
+      const buttonsMap = data.buttons;
+      
+      // Clear all
+      const allBtn = document.querySelectorAll('.v-dpad-btn, .v-btn, .v-sys-btn');
+      allBtn.forEach(btn => btn.classList.remove('pressed'));
+
+      // Press
+      for (const [key, pressed] of Object.entries(buttonsMap)) {
+        if (!pressed) continue;
+        const btnName = key.replace('P1 ', '').toLowerCase();
+        const btnElement = document.getElementById(`btn-${btnName}`);
+        
+        if (btnElement) {
+          btnElement.classList.add('pressed');
+          setTimeout(() => {
+            btnElement.classList.remove('pressed');
+          }, 250);
+        }
+      }
+    }
+
+    // Scroll hud feed
+    function pushToHudFeed(username, command) {
+      const feed = document.getElementById('hud-feed');
+      const item = document.createElement('div');
+      item.className = 'hud-item';
+      
+      const firstChar = username.charAt(0);
+      
+      item.innerHTML = `
+        <div class="hud-avatar-placeholder">${firstChar}</div>
+        <div class="hud-details">
+          <span class="hud-user">@${username}</span>
+          <span class="hud-cmd">${command}</span>
+        </div>
+      `;
+
+      feed.appendChild(item);
+      
+      // Trigger exit animation and delete after 5 seconds
+      setTimeout(() => {
+        item.classList.add('exit');
+        setTimeout(() => {
+          if (feed.contains(item)) {
+            feed.removeChild(item);
+          }
+        }, 400);
+      }, 4000);
+
+      // Scroll to bottom
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    // Initialize
+    parseQueryParams();
+    loadControllerHTML();
+    connectWS();
+  </script>
+</body>
+</html>

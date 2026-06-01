@@ -1,0 +1,14 @@
+{
+  "channelName": "RieLoveChan",
+  "botUsername": "NST_Rasis",
+  "twitchOAuthToken": "oauth:your_twitch_oauth_token_here",
+  "adminUsers": [],
+  "adminPrefix": "!play",
+  "queueMode": "anarchy",
+  "holdFrames": 12,
+  "releaseFrames": 6,
+  "userCooldownSeconds": 3,
+  "democracyVoteSeconds": 5,
+  "sendChatFeedback": false,
+  "activeConsole": "gb"
+}
