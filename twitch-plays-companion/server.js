@@ -30,7 +30,10 @@ const DEFAULT_CONFIG = {
   userCooldownSeconds: 2,
   democracyVoteSeconds: 15,
   sendChatFeedback: true,
-  activeConsole: "nes" // nes, gb
+  activeConsole: "nes", // nes, gb
+  inputPrefix: "",
+  inputSuffix: "",
+  partialPrefixMatch: false
 };
 
 // Global state
@@ -448,10 +451,62 @@ function handleChatMessage(username, message, badges = {}) {
     return;
   }
 
-  // 3. Parse Chat Inputs
+  // 3. Process Prefix & Suffix Constraints
+  let commandToParse = cleanMessage;
+  const prefix = (config.inputPrefix || "").trim().toLowerCase();
+  const suffix = (config.inputSuffix || "").trim().toLowerCase();
+  const partialMatch = config.partialPrefixMatch;
+
+  if (prefix) {
+    if (partialMatch) {
+      // Find prefix anywhere in the message and extract the token immediately following it
+      const escapedPrefix = prefix.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(`${escapedPrefix}\\s*([^\\s]+)`, 'i');
+      const match = cleanMessage.match(regex);
+      if (match) {
+        commandToParse = match[1];
+      } else {
+        // Prefix required but missing - treat as normal chat or drop
+        return;
+      }
+    } else {
+      // Strict start-of-message match
+      if (cleanMessage.toLowerCase().startsWith(prefix)) {
+        commandToParse = cleanMessage.slice(prefix.length).trim();
+      } else {
+        // Prefix required but missing - treat as normal chat or drop
+        return;
+      }
+    }
+  }
+
+  if (suffix) {
+    if (partialMatch) {
+      // Find suffix anywhere in the message and extract the token immediately preceding it
+      const escapedSuffix = suffix.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(`([^\\s]+)\\s*${escapedSuffix}`, 'i');
+      const match = commandToParse.match(regex);
+      if (match) {
+        commandToParse = match[1];
+      } else {
+        // Suffix required but missing - treat as normal chat or drop
+        return;
+      }
+    } else {
+      // Strict end-of-message match
+      if (commandToParse.toLowerCase().endsWith(suffix)) {
+        commandToParse = commandToParse.slice(0, commandToParse.length - suffix.length).trim();
+      } else {
+        // Suffix required but missing - treat as normal chat or drop
+        return;
+      }
+    }
+  }
+
+  // 4. Parse Chat Inputs
   // Tokenizer matching hold commands or combos/single buttons
   const tokenizer = /(?:hold\s+)?(?:a|b|up|down|left|right|select|start|u|d|l|r|sel|st)\s+\d+|(?:[a-z0-9+]+)/gi;
-  const seqParts = cleanMessage.match(tokenizer) || [];
+  const seqParts = commandToParse.match(tokenizer) || [];
   const parsedSequence = [];
   
   for (const part of seqParts) {
@@ -466,8 +521,8 @@ function handleChatMessage(username, message, badges = {}) {
     userCooldowns.set(username, now);
     
     if (config.queueMode === 'democracy') {
-      democracyVotes[cleanMessage] = (democracyVotes[cleanMessage] || 0) + 1;
-      registerStat(username, cleanMessage);
+      democracyVotes[commandToParse] = (democracyVotes[commandToParse] || 0) + 1;
+      registerStat(username, commandToParse);
       
       broadcast('queue_updated', getQueueState());
       broadcast('chat_message', { user: username, message: cleanMessage, badge: badges, isCommand: true });

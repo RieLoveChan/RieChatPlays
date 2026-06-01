@@ -142,6 +142,34 @@
           </label>
         </div>
 
+        <!-- Prefix & Suffix Setup -->
+        <div class="form-group" style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+          <label for="inputPrefix">Command Prefix</label>
+          <div class="input-wrapper">
+            <i data-lucide="chevrons-right"></i>
+            <input type="text" id="inputPrefix" placeholder="e.g., !play (Leave empty for none)">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="inputSuffix">Command Suffix</label>
+          <div class="input-wrapper">
+            <i data-lucide="chevrons-left"></i>
+            <input type="text" id="inputSuffix" placeholder="e.g., !play (Leave empty for none)">
+          </div>
+        </div>
+
+        <div class="toggle-wrapper" style="margin-bottom: 1.5rem;">
+          <div class="slider-info">
+            <span>Anywhere Matching</span>
+            <span>Allow prefix/suffix anywhere in chat messages</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="partialPrefixMatch">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
         <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
           <i data-lucide="save"></i>
           Save Settings
@@ -441,6 +469,11 @@
       document.getElementById('democracyVoteSeconds-val').innerText = cfg.democracyVoteSeconds + "s";
       
       document.getElementById('sendChatFeedback').checked = cfg.sendChatFeedback;
+      
+      // Prefix, Suffix & Matching Toggles
+      document.getElementById('inputPrefix').value = cfg.inputPrefix || "";
+      document.getElementById('inputSuffix').value = cfg.inputSuffix || "";
+      document.getElementById('partialPrefixMatch').checked = cfg.partialPrefixMatch || false;
 
       if (cfg.activeConsole !== currentConsole) {
         updateControllerLayout(cfg.activeConsole);
@@ -464,7 +497,10 @@
         releaseFrames: parseInt(document.getElementById('releaseFrames').value, 10),
         userCooldownSeconds: parseInt(document.getElementById('userCooldownSeconds').value, 10),
         democracyVoteSeconds: parseInt(document.getElementById('democracyVoteSeconds').value, 10),
-        sendChatFeedback: document.getElementById('sendChatFeedback').checked
+        sendChatFeedback: document.getElementById('sendChatFeedback').checked,
+        inputPrefix: document.getElementById('inputPrefix').value.trim(),
+        inputSuffix: document.getElementById('inputSuffix').value.trim(),
+        partialPrefixMatch: document.getElementById('partialPrefixMatch').checked
       };
 
       fetch('/api/config', {
