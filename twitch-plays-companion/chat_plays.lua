@@ -1,9 +1,9 @@
--- BizHawk 2.11.1 Twitch Plays Lua Script (CLEAR / NO-HUD VERSION)
+-- BizHawk 2.11.1 Chat Plays Lua Script (Base / Clear Version)
 -- Written by Antigravity
 
 console.clear()
 print("-------------------------------------------------------------")
-print("  BizHawk Twitch Plays Integration script (CLEAR / NO-HUD)   ")
+print("  BizHawk Chat Plays Integration script (Base / Clear)       ")
 print("  Target version: BizHawk 2.11.1                             ")
 print("-------------------------------------------------------------")
 
@@ -12,21 +12,22 @@ local POLL_URL = "http://localhost:8080/api/poll"
 local EMPTY_POLL_COOLDOWN = 10 -- Wait 10 frames before repolling if queue was empty
 local OFFLINE_RETRY_COOLDOWN = 180 -- Wait 3 seconds (180 frames) if server is offline
 
--- Script States
-local STATE_IDLE = "IDLE"
-local STATE_PRESS = "PRESS"
-local STATE_RELEASE = "RELEASE"
+-- Script States (Global for Add-on/HUD visibility)
+STATE_IDLE = "IDLE"
+STATE_PRESS = "PRESS"
+STATE_RELEASE = "RELEASE"
 
-local state = STATE_IDLE
+state = STATE_IDLE
+activeUser = ""
+activeCommand = ""
+serverOnline = false
+
 local framesLeft = 0
 local activeButtons = {}
-local activeUser = ""
-local activeCommand = ""
 local activeReleaseFrames = 4
 
 local pendingTask = nil
 local pollCooldown = 0
-local serverOnline = false
 local serverOfflineTimer = 0
 local emptyPollLogTimer = 0
 
@@ -74,7 +75,7 @@ if not http_client_available then
   end
 end
 
-print("Twitch Plays Controller listening on: " .. POLL_URL)
+print("Chat Plays Controller listening on: " .. POLL_URL)
 
 -- Simple JSON parsing function (Regex-based)
 local function parseJson(json)
@@ -116,9 +117,11 @@ local function parseJson(json)
   }
 end
 
--- Draw On-Screen HUD Overlay (Disabled in CLEAR version)
-local function drawHUD()
-  -- No-op: No visual overlay feedback drawn on emulator screen
+-- Draw On-Screen HUD Overlay (Placeholder/Hook for add-ons)
+if not drawHUD then
+  function drawHUD()
+    -- No-op: No visual overlay feedback in base script by default
+  end
 end
 
 -- Synchronous WebRequest Poller (Timeout safe)
@@ -189,7 +192,7 @@ event.onframestart(applyInputs)
 
 -- Frame Advance Loop
 while true do
-  -- Draw Streamer HUD (No-op in this clear version)
+  -- Draw Streamer HUD (Delegated to drawHUD hook)
   drawHUD()
 
   -- Check Server Cooldown Timer

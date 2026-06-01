@@ -17,7 +17,7 @@ It contains a robust Node.js backend server, a gorgeous web dashboard for the st
 5. **No Twitch Developer Bloat**: Connects **anonymously** in read-only mode by default—just enter your Twitch channel name and start reading chat immediately!
 6. **Chat Feedback bot**: If a bot username and OAuth token are supplied, the bot will message your chat with command receipts, Timing adjustments, error feedbacks, and democracy winners.
 7. **Mod Administrative Controls**: Designate administrative permissions (mods, broadcaster, custom list) to control emulation directly from Twitch chat (e.g. `!pause`, `!resume`, `!clear`, `!mode anarchy`, etc.).
-8. **Fault-Tolerant BizHawk Lua Script**: Safe C# asynchronous polling client that will NEVER freeze the emulator even if your server restarts or goes offline, drawing a sleek translucent stats HUD directly on the game window.
+8. **Fault-Tolerant BizHawk Lua Script**: Safe C# asynchronous polling client that will NEVER freeze the emulator even if your server restarts or goes offline. Features a modular architecture supporting a clean core input injection script and an optional glowing HUD visual overlay.
 
 ---
 
@@ -29,7 +29,8 @@ twitch-plays-companion/
 ├── config.json             # Dynamics configurations file (credentials & options)
 ├── package.json            # Node.js server dependencies
 ├── run.bat                 # One-click companion app launcher
-├── twitch_plays.lua        # BizHawk Lua polling script
+├── chat_plays.lua          # Core BizHawk Lua script (no-HUD/clean base)
+├── chat_plays_hud.lua      # BizHawk Lua script add-on (with visual stats HUD)
 ├── public/                 # Static web client (dashboard & overlays)
 │   ├── index.html          # Glassmorphic Streamer Dashboard
 │   ├── overlay.html        # Transparent OBS Virtual Controller Overlay
@@ -59,8 +60,10 @@ twitch-plays-companion/
 ### 3. Setup BizHawk 2.11.1 Emulator
 1. Start BizHawk and load a NES or GameBoy ROM (e.g. Pokémon Red, Super Mario Bros).
 2. Open the Lua Console (**Tools > Lua Console**).
-3. Drag-and-drop the `twitch_plays.lua` script (inside `twitch-plays-companion`) into the Lua Console window.
-4. You will see a beautiful HUD overlay appear on the top-left of your game screen saying `TWITCH PLAYS: ONLINE`.
+3. Drag-and-drop either script from `twitch-plays-companion` into the Lua Console window:
+   - **`chat_plays_hud.lua`** (Recommended): Visual HUD overlay mode drawing server status and active inputs.
+   - **`chat_plays.lua`**: Base script with no on-screen overlay (ideal for clean stream captures).
+4. If using `chat_plays_hud.lua`, you will see a beautiful HUD overlay appear on the top-left of your game screen saying `TWITCH PLAYS: ONLINE`.
 5. You're ready to play!
 
 ### 4. Setup OBS Overlay HUD
