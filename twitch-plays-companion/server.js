@@ -366,6 +366,7 @@ function parseCommandText(text) {
       buttons: {},
       isWait: true,
       holdFrames: config.holdFrames,
+      releaseFrames: config.releaseFrames,
       rawCommand: 'Wait'
     };
   }
@@ -381,6 +382,7 @@ function parseCommandText(text) {
         buttons: {},
         isWait: true,
         holdFrames: frames,
+        releaseFrames: config.releaseFrames,
         rawCommand: `Wait (${frames}f)`
       };
     }
@@ -392,6 +394,7 @@ function parseCommandText(text) {
       return {
         buttons,
         holdFrames: frames,
+        releaseFrames: config.releaseFrames,
         rawCommand: `${mappedBtn} (${frames}f)`
       };
     }
@@ -416,6 +419,7 @@ function parseCommandText(text) {
       return {
         buttons,
         holdFrames: config.holdFrames,
+        releaseFrames: config.releaseFrames,
         rawCommand: validMapped.join('+')
       };
     }
@@ -429,6 +433,7 @@ function parseCommandText(text) {
     return {
       buttons,
       holdFrames: config.holdFrames,
+      releaseFrames: config.releaseFrames,
       rawCommand: mappedBtn
     };
   }
@@ -1028,6 +1033,9 @@ app.get('/api/poll', (req, res) => {
   if (config.queueMode === 'democracy') {
     if (democracyQueue.length > 0) {
       responseData = { ...democracyQueue.shift() };
+      if (responseData.buttons || responseData.isWait) {
+        responseData.releaseFrames = responseData.releaseFrames || config.releaseFrames;
+      }
       broadcast('queue_updated', getQueueState());
       broadcast('input_pressed', { buttons: responseData.buttons, user: responseData.user, command: responseData.rawCommand, isWait: responseData.isWait });
     }
@@ -1035,6 +1043,9 @@ app.get('/api/poll', (req, res) => {
     // Anarchy / FIFO Queue
     if (inputQueue.length > 0) {
       responseData = { ...inputQueue.shift() };
+      if (responseData.buttons || responseData.isWait) {
+        responseData.releaseFrames = responseData.releaseFrames || config.releaseFrames;
+      }
       broadcast('queue_updated', getQueueState());
       broadcast('input_pressed', { buttons: responseData.buttons, user: responseData.user, command: responseData.rawCommand, isWait: responseData.isWait });
     }
