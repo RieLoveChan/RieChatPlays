@@ -2,15 +2,62 @@
 -- Written by Antigravity
 
 console.clear()
-print("-------------------------------------------------------------")
-print("  BizHawk Chat Plays Integration script (Base / Clear)       ")
-print("  Target version: BizHawk 2.11.1                             ")
-print("-------------------------------------------------------------")
+
+-- Save the original console print function
+local original_print = print
+
+-- Determine script directory path
+local script_path = debug.getinfo(1).source:match("@?(.*[\\/])") or ""
+-- Ensure logs directory exists (silent mkdir command for Windows)
+os.execute('mkdir "' .. script_path .. 'logs" 2>nul')
+
+-- Generate filename formatted as YYYYMMDD HHmm.log
+local log_filename = os.date("%Y%m%d %H%M") .. ".log"
+local log_filepath = script_path .. "logs/" .. log_filename
+
+-- Open log file in append mode
+local log_file, err = io.open(log_filepath, "a")
+if log_file then
+  log_file:write("\n=== LOG STARTED AT " .. os.date("%Y-%m-%d %H:%M:%S") .. " ===\n")
+  log_file:flush()
+else
+  original_print("[WARNING] Could not open log file: " .. tostring(err))
+end
+
+-- Override global print to duplicate console output to the log file
+print = function(...)
+  -- Print to BizHawk Lua Console
+  original_print(...)
+  
+  -- Write to log file if open
+  if log_file then
+    local args = {...}
+    for i = 1, #args do
+      args[i] = tostring(args[i])
+    end
+    local message = table.concat(args, "\t")
+    log_file:write(message .. "\n")
+    log_file:flush()
+  end
+end
+
+-- Close log file cleanly when the script stops/is closed in BizHawk
+event.onexit(function()
+  if log_file then
+    log_file:write("=== LOG ENDED AT " .. os.date("%Y-%m-%d %H:%M:%S") .. " ===\n\n")
+    log_file:close()
+    log_file = nil
+  end
+end)
+print("  BizHawk Chat Plays Integration script   ")
+print("  Target version: BizHawk 2.11.1          ")
 
 -- Polling Configs
 local POLL_URL = "http://localhost:8080/api/poll"
-local EMPTY_POLL_COOLDOWN = 10 -- Wait 10 frames before repolling if queue was empty
-local OFFLINE_RETRY_COOLDOWN = 180 -- Wait 3 seconds (180 frames) if server is offline
+local BASE_POLL_COOLDOWN = 30 -- Base frames to wait before repolling if queue was empty
+local POLL_COOLDOWN_STEP = 20 -- Cooldown increment per empty poll
+local MAX_POLL_COOLDOWN = 180 -- Max frames to wait (adaptive backoff limit)
+local OFFLINE_RETRY_COOLDOWN = 300 -- Wait 5 seconds (300 frames) if server is offline
 
 -- URL Encoding helper for passing ROM name to server
 local function urlEncode(str)
@@ -64,6 +111,9 @@ serverOnline = false
 local framesLeft = 0
 local activeButtons = {}
 local activeReleaseFrames = 4
+
+local localQueue = {}
+local currentEmptyPollCooldown = BASE_POLL_COOLDOWN
 
 local pendingTask = nil
 local pollCooldown = 0
@@ -157,6 +207,79 @@ local function parseJson(json)
   }
 end
 
+-- Helper to split a JSON array of objects by counting braces
+local function splitJsonArray(jsonStr)
+  local objs = {}
+  local depth = 0
+  local startIdx = nil
+  for i = 1, #jsonStr do
+    local char = jsonStr:sub(i, i)
+    if char == "{" then
+      depth = depth + 1
+      if depth == 1 then
+        startIdx = i
+      end
+    elseif char == "}" then
+      depth = depth - 1
+      if depth == 0 and startIdx then
+        table.insert(objs, jsonStr:sub(startIdx, i))
+        startIdx = nil
+      end
+    end
+  end
+  return objs
+end
+
+-- Helper to pop the next command from local queue and transition the state machine
+local function popNextLocalCommand()
+  if #localQueue > 0 then
+    local cmd = table.remove(localQueue, 1)
+    activeButtons = cmd.buttons
+    activeUser = cmd.user
+    activeCommand = cmd.commandText
+    
+    local hold = cmd.holdFrames
+    local release = cmd.releaseFrames
+    
+    activeReleaseFrames = release
+    state = STATE_PRESS
+    framesLeft = hold
+    
+    print(string.format("Chatter @%s pressed: %s (Hold: %df, Release: %df) [Local Queue Size: %d]", 
+      cmd.user, cmd.commandText, hold, release, #localQueue))
+    
+    local keys_applied = {}
+    for k, v in pairs(activeButtons) do
+      if v then table.insert(keys_applied, tostring(k)) end
+    end
+    table.sort(keys_applied)
+    print("  -> Joypad keys set: {" .. table.concat(keys_applied, ", ") .. "}")
+    
+    currentEmptyPollCooldown = BASE_POLL_COOLDOWN -- Reset idle backoff cooldown
+  else
+    pollCooldown = currentEmptyPollCooldown
+    currentEmptyPollCooldown = math.min(MAX_POLL_COOLDOWN, currentEmptyPollCooldown + POLL_COOLDOWN_STEP)
+  end
+end
+
+-- Helper to process a JSON poll response containing multiple commands
+local function handlePollResult(json)
+  processSaveStateFromJson(json)
+  
+  local commands_part = json:match('"commands"%s*:%s*%[(.-)%]')
+  if commands_part and commands_part ~= "" then
+    local cmd_jsons = splitJsonArray(commands_part)
+    for _, cmd_json in ipairs(cmd_jsons) do
+      local cmd = parseJson(cmd_json)
+      if cmd then
+        table.insert(localQueue, cmd)
+      end
+    end
+  end
+  
+  popNextLocalCommand()
+end
+
 -- Draw On-Screen HUD Overlay (Placeholder/Hook for add-ons)
 if not drawHUD then
   function drawHUD()
@@ -168,7 +291,7 @@ end
 local function makeWebRequestSync()
   local json = nil
   local requestOk, requestErr = pcall(function()
-    local url = POLL_URL .. "?game=" .. urlEncode(getRomName())
+    local url = POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName())
     local req = HttpWebRequest.Create(url)
     req.Timeout = 150 -- 150 milliseconds timeout
     local resp = req:GetResponse()
@@ -264,134 +387,94 @@ while true do
 
   elseif state == STATE_IDLE then
     -- Ready to process next command
-
-    if not pendingTask and pollCooldown <= 0 and serverOfflineTimer <= 0 then
-      if http_client_available then
-        -- Method 1: Async HttpClient Polling
-        local ok, err = pcall(function()
-          pendingTask = http:GetStringAsync(POLL_URL .. "?game=" .. urlEncode(getRomName()))
-        end)
-        
-        if not ok then
-          print("Polling dispatch error: " .. tostring(err))
-          serverOnline = false
-          serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
-        end
-      else
-        -- Method 2: Synchronous HttpWebRequest Polling (Safe with 150ms timeout)
-        emptyPollLogTimer = emptyPollLogTimer + 1
-        local shouldLog = false
-        if emptyPollLogTimer >= 300 then
-          emptyPollLogTimer = 0
-          shouldLog = true
-          print("[POLL DIAL] Dispatching synchronous HTTP poll request to: " .. POLL_URL)
-        end
-        
-        local json, err = makeWebRequestSync()
-        if json then
-          if not serverOnline then
-            print("[POLL] Companion server connected successfully!")
-            serverOfflineLogged = false
-          end
-          serverOnline = true
-          processSaveStateFromJson(json)
-          if json ~= "" and json ~= "{}" then
-            print("[POLL] HTTP request returned raw JSON: " .. json)
-            local cmd = parseJson(json)
-            if cmd then
-              activeButtons = cmd.buttons
-              activeUser = cmd.user
-              activeCommand = cmd.commandText
-              activeReleaseFrames = cmd.releaseFrames
-              
-              state = STATE_PRESS
-              framesLeft = cmd.holdFrames
-              
-              print(string.format("Chatter @%s pressed: %s (Hold: %df, Release: %df)", 
-                cmd.user, cmd.commandText, cmd.holdFrames, cmd.releaseFrames))
-              
-              -- Talk back exact keys passed to joypad.set!
-              local keys_applied = {}
-              for k, v in pairs(activeButtons) do
-                if v then table.insert(keys_applied, tostring(k)) end
-              end
-              table.sort(keys_applied)
-              print("  -> Joypad keys set: {" .. table.concat(keys_applied, ", ") .. "}")
-            else
-              print("[POLL] parseJson failed to find any valid buttons in the JSON!")
-              pollCooldown = EMPTY_POLL_COOLDOWN
-            end
-          else
-            if shouldLog then
-              print("[POLL] Received empty payload (server input queue is empty).")
-            end
-            pollCooldown = EMPTY_POLL_COOLDOWN
+    if #localQueue > 0 then
+      popNextLocalCommand()
+    else
+      if not pendingTask and pollCooldown <= 0 and serverOfflineTimer <= 0 then
+        if http_client_available then
+          -- Method 1: Async HttpClient Polling
+          local ok, err = pcall(function()
+            pendingTask = http:GetStringAsync(POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName()))
+          end)
+          
+          if not ok then
+            print("Polling dispatch error: " .. tostring(err))
+            serverOnline = false
+            serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
           end
         else
-          if serverOnline or not serverOfflineLogged then
-            print("[POLL] Companion server is offline. Will automatically reconnect when started.")
-            serverOfflineLogged = true
+          -- Method 2: Synchronous HttpWebRequest Polling (Safe with 150ms timeout)
+          emptyPollLogTimer = emptyPollLogTimer + 1
+          local shouldLog = false
+          if emptyPollLogTimer >= 300 then
+            emptyPollLogTimer = 0
+            shouldLog = true
+            print("[POLL DIAL] Dispatching synchronous HTTP poll request to: " .. POLL_URL)
           end
-          serverOnline = false
-          serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
-        end
-      end
-    end
-
-    -- Process Completed Tasks (Async only)
-    if http_client_available and pendingTask then
-      if pendingTask.IsCompleted then
-        local isFaulted = pendingTask.IsFaulted
-        
-        if not isFaulted then
-          local ok, json = pcall(function() return pendingTask.Result end)
-          pendingTask = nil
-
-          if ok and json then
+          
+          local json, err = makeWebRequestSync()
+          if json then
             if not serverOnline then
               print("[POLL] Companion server connected successfully!")
               serverOfflineLogged = false
             end
             serverOnline = true
-            processSaveStateFromJson(json)
             if json ~= "" and json ~= "{}" then
-              print("[POLL] Async HTTP returned raw JSON: " .. json)
-              local cmd = parseJson(json)
-              if cmd then
-                activeButtons = cmd.buttons
-                activeUser = cmd.user
-                activeCommand = cmd.commandText
-                activeReleaseFrames = cmd.releaseFrames
-                
-                state = STATE_PRESS
-                framesLeft = cmd.holdFrames
-                
-                print(string.format("Chatter @%s pressed: %s (Hold: %df, Release: %df)", 
-                  cmd.user, cmd.commandText, cmd.holdFrames, cmd.releaseFrames))
-                
-                -- Talk back exact keys passed to joypad.set!
-                local keys_applied = {}
-                for k, v in pairs(activeButtons) do
-                  if v then table.insert(keys_applied, tostring(k)) end
-                end
-                table.sort(keys_applied)
-                print("  -> Joypad keys set: {" .. table.concat(keys_applied, ", ") .. "}")
+              print("[POLL] HTTP request returned raw JSON: " .. json)
+              handlePollResult(json)
+            else
+              if shouldLog then
+                print("[POLL] Received empty payload (server input queue is empty).")
+              end
+              pollCooldown = currentEmptyPollCooldown
+              currentEmptyPollCooldown = math.min(MAX_POLL_COOLDOWN, currentEmptyPollCooldown + POLL_COOLDOWN_STEP)
+            end
+          else
+            if serverOnline or not serverOfflineLogged then
+              print("[POLL] Companion server is offline. Will automatically reconnect when started.")
+              serverOfflineLogged = true
+            end
+            serverOnline = false
+            serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
+          end
+        end
+      end
+
+      -- Process Completed Tasks (Async only)
+      if http_client_available and pendingTask then
+        if pendingTask.IsCompleted then
+          local isFaulted = pendingTask.IsFaulted
+          
+          if not isFaulted then
+            local ok, json = pcall(function() return pendingTask.Result end)
+            pendingTask = nil
+
+            if ok and json then
+              if not serverOnline then
+                print("[POLL] Companion server connected successfully!")
+                serverOfflineLogged = false
+              end
+              serverOnline = true
+              if json ~= "" and json ~= "{}" then
+                print("[POLL] Async HTTP returned raw JSON: " .. json)
+                handlePollResult(json)
               else
-                print("[POLL] parseJson failed to find any valid buttons in the async JSON!")
-                pollCooldown = EMPTY_POLL_COOLDOWN
+                pollCooldown = currentEmptyPollCooldown
+                currentEmptyPollCooldown = math.min(MAX_POLL_COOLDOWN, currentEmptyPollCooldown + POLL_COOLDOWN_STEP)
               end
             else
-              pollCooldown = EMPTY_POLL_COOLDOWN
+              pollCooldown = currentEmptyPollCooldown
+              currentEmptyPollCooldown = math.min(MAX_POLL_COOLDOWN, currentEmptyPollCooldown + POLL_COOLDOWN_STEP)
             end
+          else
+            if serverOnline or not serverOfflineLogged then
+              print("[POLL] Companion server is offline. Will automatically reconnect when started.")
+              serverOfflineLogged = true
+            end
+            serverOnline = false
+            pendingTask = nil
+            serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
           end
-        else
-          if serverOnline or not serverOfflineLogged then
-            print("[POLL] Companion server is offline. Will automatically reconnect when started.")
-            serverOfflineLogged = true
-          end
-          serverOnline = false
-          pendingTask = nil
-          serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
         end
       end
     end

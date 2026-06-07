@@ -1030,19 +1030,30 @@ app.get('/api/poll', (req, res) => {
 
   let responseData = {};
 
-  if (config.queueMode === 'democracy') {
-    if (democracyQueue.length > 0) {
-      responseData = { ...democracyQueue.shift() };
-      if (responseData.buttons || responseData.isWait) {
-        responseData.releaseFrames = responseData.releaseFrames || config.releaseFrames;
+  if (req.query.batch === '1') {
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const commands = [];
+    const activeQueue = config.queueMode === 'democracy' ? democracyQueue : inputQueue;
+
+    while (activeQueue.length > 0 && commands.length < limit) {
+      const cmd = activeQueue.shift();
+      if (cmd.buttons || cmd.isWait) {
+        cmd.releaseFrames = cmd.releaseFrames || config.releaseFrames;
       }
-      broadcast('queue_updated', getQueueState());
-      broadcast('input_pressed', { buttons: responseData.buttons, user: responseData.user, command: responseData.rawCommand, isWait: responseData.isWait });
+      commands.push(cmd);
+      broadcast('input_pressed', { buttons: cmd.buttons, user: cmd.user, command: cmd.rawCommand, isWait: cmd.isWait });
     }
+
+    if (commands.length > 0) {
+      broadcast('queue_updated', getQueueState());
+    }
+
+    responseData = { commands };
   } else {
-    // Anarchy / FIFO Queue
-    if (inputQueue.length > 0) {
-      responseData = { ...inputQueue.shift() };
+    // Legacy single item mode
+    const activeQueue = config.queueMode === 'democracy' ? democracyQueue : inputQueue;
+    if (activeQueue.length > 0) {
+      responseData = { ...activeQueue.shift() };
       if (responseData.buttons || responseData.isWait) {
         responseData.releaseFrames = responseData.releaseFrames || config.releaseFrames;
       }
