@@ -11,9 +11,31 @@ local script_path = debug.getinfo(1).source:match("@?(.*[\\/])") or ""
 -- Ensure logs directory exists (silent mkdir command for Windows)
 os.execute('mkdir "' .. script_path .. 'logs" 2>nul')
 
--- Generate filename formatted as YYYYMMDD HHmm.log
-local log_filename = os.date("%Y%m%d %H%M") .. ".log"
-local log_filepath = script_path .. "logs/" .. log_filename
+-- Helper to check if a file exists
+local function file_exists(path)
+  local f = io.open(path, "r")
+  if f then
+    f:close()
+    return true
+  else
+    return false
+  end
+end
+
+-- Find next available log file in YYYYMMDD_HHMM_N.log format
+local function get_log_filepath(dir)
+  local date_str = os.date("%Y%m%d_%H%M")
+  local n = 1
+  while true do
+    local path = dir .. "logs/" .. date_str .. "_" .. n .. ".log"
+    if not file_exists(path) then
+      return path
+    end
+    n = n + 1
+  end
+end
+
+local log_filepath = get_log_filepath(script_path)
 
 -- Open log file in append mode
 local log_file, err = io.open(log_filepath, "a")
@@ -24,20 +46,34 @@ else
   original_print("[WARNING] Could not open log file: " .. tostring(err))
 end
 
--- Override global print to duplicate console output to the log file
+-- Helper to check if a message is an error or warning (case-insensitive search)
+local function is_warning_or_error(msg)
+  local lower_msg = msg:lower()
+  return lower_msg:find("warning") or 
+         lower_msg:find("error") or 
+         lower_msg:find("fail") or 
+         lower_msg:find("critical") or 
+         lower_msg:find("offline") or 
+         lower_msg:find("disconnect")
+end
+
+-- Override global print to only output and log warnings/errors
 print = function(...)
-  -- Print to BizHawk Lua Console
-  original_print(...)
+  local args = {...}
+  for i = 1, #args do
+    args[i] = tostring(args[i])
+  end
+  local message = table.concat(args, "\t")
   
-  -- Write to log file if open
-  if log_file then
-    local args = {...}
-    for i = 1, #args do
-      args[i] = tostring(args[i])
+  if is_warning_or_error(message) then
+    -- Print to BizHawk Lua Console
+    original_print(message)
+    
+    -- Write to log file if open
+    if log_file then
+      log_file:write(message .. "\n")
+      log_file:flush()
     end
-    local message = table.concat(args, "\t")
-    log_file:write(message .. "\n")
-    log_file:flush()
   end
 end
 
@@ -262,9 +298,20 @@ local function popNextLocalCommand()
   end
 end
 
+-- Process auto-clear console commands from JSON payload
+local function processClearConsoleFromJson(json)
+  if not json or json == "" or json == "{}" then return end
+  local clearConsole = json:match('"clearConsole"%s*:%s*true')
+  if clearConsole then
+    console.clear()
+    print("[SYSTEM] Console cleared automatically to prevent emulator lag.")
+  end
+end
+
 -- Helper to process a JSON poll response containing multiple commands
 local function handlePollResult(json)
   processSaveStateFromJson(json)
+  processClearConsoleFromJson(json)
   
   local commands_part = json:match('"commands"%s*:%s*%[(.-)%]')
   if commands_part and commands_part ~= "" then

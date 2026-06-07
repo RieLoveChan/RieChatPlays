@@ -5,6 +5,58 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const tmi = require('tmi.js');
+const util = require('util');
+
+// Create logs directory if it doesn't exist
+const LOGS_DIR = path.join(__dirname, 'logs');
+if (!fs.existsSync(LOGS_DIR)) {
+  fs.mkdirSync(LOGS_DIR, { recursive: true });
+}
+
+// Generate log filename in YYYYMMDD_HHMM_N.log format
+function getLogFileName() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const dateStr = `${yyyy}${mm}${dd}_${hh}${min}`;
+  
+  let n = 1;
+  while (true) {
+    const filename = `${dateStr}_${n}.log`;
+    const filepath = path.join(LOGS_DIR, filename);
+    if (!fs.existsSync(filepath)) {
+      return filepath;
+    }
+    n++;
+  }
+}
+
+const logFilePath = getLogFileName();
+const logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+
+// Override console methods to only print and log warnings/errors
+const originalLog = console.log;
+const originalWarn = console.warn;
+const originalError = console.error;
+
+console.log = function() {};
+console.info = function() {};
+console.debug = function() {};
+
+console.warn = function(...args) {
+  const formatted = util.format(...args);
+  originalWarn.call(console, formatted);
+  logStream.write(`[WARNING] [${new Date().toISOString()}] ${formatted}\n`);
+};
+
+console.error = function(...args) {
+  const formatted = util.format(...args);
+  originalError.call(console, formatted);
+  logStream.write(`[ERROR] [${new Date().toISOString()}] ${formatted}\n`);
+};
 
 // Global Unhandled Process Protection
 process.on('unhandledRejection', (reason, promise) => {
@@ -39,6 +91,8 @@ const DEFAULT_CONFIG = {
   autoSaveStateInterval: 15,
   autoSaveStateUnit: "minutes",
   autoSaveStateSuffix: "",
+  autoClearConsoleEnabled: true,
+  autoClearConsoleInterval: 15,
   buttonMap: {
     nes: {
       'Up': 'up, u',
@@ -133,6 +187,8 @@ let bizhawkGameName = null;
 let autoSaveStateTimer = null;
 let pendingSaveState = false;
 let nextSaveStatePath = null;
+let autoClearConsoleTimer = null;
+let pendingClearConsole = false;
 
 function rebuildActiveButtonMap() {
   activeButtonMap = {};
@@ -246,6 +302,42 @@ function triggerAutoSaveState() {
   }
 }
 
+// Auto-Clear Console Scheduler and Trigger Functions
+function setupAutoClearConsoleTimer() {
+  if (autoClearConsoleTimer) {
+    clearInterval(autoClearConsoleTimer);
+    autoClearConsoleTimer = null;
+  }
+
+  if (!config.autoClearConsoleEnabled) {
+    console.log('Auto-Clear Console is currently disabled.');
+    return;
+  }
+
+  const intervalVal = parseInt(config.autoClearConsoleInterval, 10);
+  if (isNaN(intervalVal) || intervalVal <= 0) {
+    console.warn(`Auto-Clear Console skipped: invalid interval "${config.autoClearConsoleInterval}"`);
+    return;
+  }
+
+  const ms = intervalVal * 60 * 1000;
+
+  console.log(`Setting up Auto-Clear Console timer for every ${intervalVal} minutes (${ms}ms)`);
+
+  autoClearConsoleTimer = setInterval(() => {
+    if (isPaused) {
+      console.log('Auto-Clear Console skipped because companion emulation controls are paused.');
+      return;
+    }
+    triggerAutoClearConsole();
+  }, ms);
+}
+
+function triggerAutoClearConsole() {
+  pendingClearConsole = true;
+  console.log(`[SCHEDULED CLEAR] Auto-Clear Console triggered! Next BizHawk poll will clear the console.`);
+}
+
 // Load Configuration
 function loadConfig() {
   try {
@@ -270,11 +362,13 @@ function loadConfig() {
     }
     rebuildActiveButtonMap();
     setupAutoSaveStateTimer();
+    setupAutoClearConsoleTimer();
   } catch (err) {
     console.error('Error loading config, using defaults:', err);
     config = { ...DEFAULT_CONFIG };
     rebuildActiveButtonMap();
     setupAutoSaveStateTimer();
+    setupAutoClearConsoleTimer();
   }
 }
 
@@ -295,6 +389,7 @@ function saveConfig(newConfig) {
     console.log('Configuration saved to disk.');
     rebuildActiveButtonMap();
     setupAutoSaveStateTimer();
+    setupAutoClearConsoleTimer();
     broadcast('config_updated', config);
     return true;
   } catch (err) {
@@ -536,7 +631,8 @@ function startDemocracyLoop() {
             democracyQueue.push({
               ...parsed,
               user: 'democracy',
-              commandText: parsed.rawCommand
+              commandText: parsed.rawCommand,
+              votes: maxVotes
             });
           });
 
@@ -1069,6 +1165,13 @@ app.get('/api/poll', (req, res) => {
     pendingSaveState = false;
     nextSaveStatePath = null;
     console.log(`[POLL COMMAND] Dispatched saveState instruction to BizHawk for path: ${responseData.saveStatePath}`);
+  }
+
+  // Inject clearConsole details if pending
+  if (pendingClearConsole) {
+    responseData.clearConsole = true;
+    pendingClearConsole = false;
+    console.log(`[POLL COMMAND] Dispatched clearConsole instruction to BizHawk`);
   }
 
   return res.json(responseData);

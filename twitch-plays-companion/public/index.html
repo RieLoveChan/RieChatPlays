@@ -390,6 +390,35 @@
         </div>
       </div>
 
+      <!-- Card 2.6: Auto-Clear Console Configurations -->
+      <div class="glass-card">
+        <div class="card-title">
+          <i data-lucide="trash-2"></i>
+          <h2>Auto-Clear Console Settings</h2>
+        </div>
+
+        <div class="toggle-wrapper" style="margin-bottom: 1rem;">
+          <div class="slider-info">
+            <span>Enable Auto-Clear Console</span>
+            <span>Automatically clear BizHawk console periodically to prevent lag</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoClearConsoleEnabled" onchange="toggleClearConsoleFields(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div id="clearconsole-fields-container" style="transition: opacity 0.3s ease;">
+          <div class="form-group">
+            <label for="autoClearConsoleInterval">Clear Interval (Minutes)</label>
+            <div class="input-wrapper">
+              <i data-lucide="timer"></i>
+              <input type="number" id="autoClearConsoleInterval" min="1" step="1" placeholder="e.g., 15">
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Card 3: NES Controller Mappings -->
       <div class="glass-card" style="grid-column: span 1;">
         <div class="card-title">
@@ -913,6 +942,21 @@
       }
     };
 
+    // Helper to dynamically enable/disable and visually fade auto-clear console inputs
+    window.toggleClearConsoleFields = function(enabled) {
+      const container = document.getElementById('clearconsole-fields-container');
+      if (!container) return;
+      if (enabled) {
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+        document.getElementById('autoClearConsoleInterval').disabled = false;
+      } else {
+        container.style.opacity = '0.4';
+        container.style.pointerEvents = 'none';
+        document.getElementById('autoClearConsoleInterval').disabled = true;
+      }
+    };
+
     // Populate Settings UI Form
     function updateConfigForm(cfg) {
       document.getElementById('channelName').value = cfg.channelName || "";
@@ -943,6 +987,13 @@
       
       // Apply correct toggle layout
       window.toggleSaveStateFields(cfg.autoSaveStateEnabled || false);
+
+      // Auto-Clear Console Settings
+      document.getElementById('autoClearConsoleEnabled').checked = cfg.autoClearConsoleEnabled !== false;
+      document.getElementById('autoClearConsoleInterval').value = cfg.autoClearConsoleInterval || 15;
+      
+      // Apply correct toggle layout
+      window.toggleClearConsoleFields(cfg.autoClearConsoleEnabled !== false);
 
       // Populate dynamic mappings
       const consoles = ['nes', 'gb', 'snes', 'gba', 'genesis', 'n64'];
@@ -1021,6 +1072,8 @@
         autoSaveStateInterval: parseInt(document.getElementById('autoSaveStateInterval').value, 10) || 15,
         autoSaveStateUnit: document.getElementById('autoSaveStateUnit').value,
         autoSaveStateSuffix: document.getElementById('autoSaveStateSuffix').value.trim(),
+        autoClearConsoleEnabled: document.getElementById('autoClearConsoleEnabled').checked,
+        autoClearConsoleInterval: parseInt(document.getElementById('autoClearConsoleInterval').value, 10) || 15,
         buttonMap: buttonMap
       };
 
