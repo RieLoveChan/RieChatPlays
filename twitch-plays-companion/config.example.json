@@ -11,6 +11,15 @@
   "democracyVoteSeconds": 5,
   "sendChatFeedback": false,
   "activeConsole": "gb",
+  "forbiddenFeedbackTemplate": "@{username}, the combination \"{command}\" is blocked on {game} to prevent game resets!",
+  "forbiddenCombinations": {
+    "nes": [["Select", "Start"]],
+    "gb": [["Select", "Start"]],
+    "snes": [["Select", "Start"]],
+    "gba": [["Select", "Start"]],
+    "genesis": [],
+    "n64": []
+  },
   "autoSaveStateEnabled": false,
   "autoSaveStateInterval": 15,
   "autoSaveStateUnit": "minutes",

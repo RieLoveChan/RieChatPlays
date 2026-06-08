@@ -310,6 +310,17 @@
         </div>
 
         <div class="form-group" style="margin-top: 1rem;">
+          <label for="forbiddenFeedbackTemplate">Blocked Input Chat Template</label>
+          <div class="input-wrapper">
+            <i data-lucide="message-square"></i>
+            <input type="text" id="forbiddenFeedbackTemplate" placeholder="e.g., @{username}, {command} is blocked!">
+          </div>
+          <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+            Supports placeholders: <code>{username}</code>, <code>{command}</code>, <code>{game}</code>, <code>{time}</code>
+          </p>
+        </div>
+
+        <div class="form-group" style="margin-top: 1rem;">
           <label for="inputPrefix">Command Prefix</label>
           <div class="input-wrapper">
             <i data-lucide="chevrons-right"></i>
@@ -444,6 +455,82 @@
               <i data-lucide="timer"></i>
               <input type="number" id="autoPauseSeconds" min="1" step="1" placeholder="e.g., 30">
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2.8: Troll Prevention & Banning -->
+      <div class="glass-card">
+        <div class="card-title">
+          <i data-lucide="shield-alert"></i>
+          <h2>Troll Prevention & Banning</h2>
+        </div>
+
+        <div class="form-group">
+          <label for="forbiddenCooldownSeconds">Bot Reply Cooldown (Seconds)</label>
+          <div class="input-wrapper">
+            <i data-lucide="timer"></i>
+            <input type="number" id="forbiddenCooldownSeconds" min="0" step="1" required>
+          </div>
+          <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+            Prevents the bot from spamming chat when trolls rapidly input forbidden buttons.
+          </p>
+        </div>
+
+        <div class="toggle-wrapper" style="margin-top: 1rem; margin-bottom: 1rem;">
+          <div class="slider-info">
+            <span>Enable Automated Banning</span>
+            <span>Ban users temporarily for spamming forbidden buttons</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="forbiddenBanEnabled" onchange="toggleForbiddenBanFields(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div id="forbidden-ban-fields-container" style="transition: opacity 0.3s ease;">
+          <div class="form-group">
+            <label for="forbiddenBanThreshold">Ban Threshold (Attempts)</label>
+            <div class="input-wrapper">
+              <i data-lucide="alert-circle"></i>
+              <input type="number" id="forbiddenBanThreshold" min="1" step="1" required>
+            </div>
+            <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+              Number of forbidden inputs before a temporary ban is applied.
+            </p>
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label for="forbiddenBanWindowSeconds">Monitoring Window (Seconds)</label>
+            <div class="input-wrapper">
+              <i data-lucide="hourglass"></i>
+              <input type="number" id="forbiddenBanWindowSeconds" min="1" step="1" required>
+            </div>
+            <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+              Time window to count the forbidden inputs (e.g. 60 seconds).
+            </p>
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label for="forbiddenBanDurationSeconds">Ban Duration (Seconds)</label>
+            <div class="input-wrapper">
+              <i data-lucide="ban"></i>
+              <input type="number" id="forbiddenBanDurationSeconds" min="1" step="1" required>
+            </div>
+            <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+              How long the user will be blocked from executing inputs (e.g. 300 seconds).
+            </p>
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label for="forbiddenBanFeedbackTemplate">Ban Notification Template</label>
+            <div class="input-wrapper">
+              <i data-lucide="message-square"></i>
+              <input type="text" id="forbiddenBanFeedbackTemplate" placeholder="e.g., @{username} is banned!">
+            </div>
+            <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+              Twitch announcement chat template. Supports: <code>{username}</code>, <code>{duration}</code>
+            </p>
           </div>
         </div>
       </div>
@@ -1001,6 +1088,27 @@
       }
     };
 
+    // Helper to dynamically enable/disable and visually fade forbidden ban inputs
+    window.toggleForbiddenBanFields = function(enabled) {
+      const container = document.getElementById('forbidden-ban-fields-container');
+      if (!container) return;
+      const fields = [
+        'forbiddenBanThreshold',
+        'forbiddenBanWindowSeconds',
+        'forbiddenBanDurationSeconds',
+        'forbiddenBanFeedbackTemplate'
+      ];
+      if (enabled) {
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+        fields.forEach(f => document.getElementById(f).disabled = false);
+      } else {
+        container.style.opacity = '0.4';
+        container.style.pointerEvents = 'none';
+        fields.forEach(f => document.getElementById(f).disabled = true);
+      }
+    };
+
     // Populate Settings UI Form
     function updateConfigForm(cfg) {
       document.getElementById('channelName').value = cfg.channelName || "";
@@ -1017,6 +1125,7 @@
       document.getElementById('buttonPressesCap').value = cfg.buttonPressesCap || 0;
       
       document.getElementById('sendChatFeedback').checked = cfg.sendChatFeedback;
+      document.getElementById('forbiddenFeedbackTemplate').value = cfg.forbiddenFeedbackTemplate || "";
       
       // Prefix, Suffix & Matching Toggles
       document.getElementById('inputPrefix').value = cfg.inputPrefix || "";
@@ -1045,6 +1154,17 @@
 
       // Apply correct toggle layout
       window.togglePauseFields(cfg.autoPauseEnabled || false);
+
+      // Troll Prevention Settings
+      document.getElementById('forbiddenCooldownSeconds').value = cfg.forbiddenCooldownSeconds !== undefined ? cfg.forbiddenCooldownSeconds : 15;
+      document.getElementById('forbiddenBanEnabled').checked = cfg.forbiddenBanEnabled || false;
+      document.getElementById('forbiddenBanThreshold').value = cfg.forbiddenBanThreshold !== undefined ? cfg.forbiddenBanThreshold : 3;
+      document.getElementById('forbiddenBanWindowSeconds').value = cfg.forbiddenBanWindowSeconds !== undefined ? cfg.forbiddenBanWindowSeconds : 60;
+      document.getElementById('forbiddenBanDurationSeconds').value = cfg.forbiddenBanDurationSeconds !== undefined ? cfg.forbiddenBanDurationSeconds : 300;
+      document.getElementById('forbiddenBanFeedbackTemplate').value = cfg.forbiddenBanFeedbackTemplate || "";
+
+      // Apply correct toggle layout
+      window.toggleForbiddenBanFields(cfg.forbiddenBanEnabled || false);
 
       // Populate dynamic mappings
       const consoles = ['nes', 'gb', 'snes', 'gba', 'genesis', 'n64'];
@@ -1116,6 +1236,7 @@
         democracyVoteSeconds: parseInt(document.getElementById('democracyVoteSeconds').value, 10) || 15,
         buttonPressesCap: parseInt(document.getElementById('buttonPressesCap').value, 10) || 0,
         sendChatFeedback: document.getElementById('sendChatFeedback').checked,
+        forbiddenFeedbackTemplate: document.getElementById('forbiddenFeedbackTemplate').value.trim(),
         inputPrefix: document.getElementById('inputPrefix').value.trim(),
         inputSuffix: document.getElementById('inputSuffix').value.trim(),
         partialPrefixMatch: document.getElementById('partialPrefixMatch').checked,
@@ -1127,6 +1248,12 @@
         autoClearConsoleInterval: parseInt(document.getElementById('autoClearConsoleInterval').value, 10) || 15,
         autoPauseEnabled: document.getElementById('autoPauseEnabled').checked,
         autoPauseSeconds: parseInt(document.getElementById('autoPauseSeconds').value, 10) || 30,
+        forbiddenCooldownSeconds: parseInt(document.getElementById('forbiddenCooldownSeconds').value, 10) || 15,
+        forbiddenBanEnabled: document.getElementById('forbiddenBanEnabled').checked,
+        forbiddenBanThreshold: parseInt(document.getElementById('forbiddenBanThreshold').value, 10) || 3,
+        forbiddenBanWindowSeconds: parseInt(document.getElementById('forbiddenBanWindowSeconds').value, 10) || 60,
+        forbiddenBanDurationSeconds: parseInt(document.getElementById('forbiddenBanDurationSeconds').value, 10) || 300,
+        forbiddenBanFeedbackTemplate: document.getElementById('forbiddenBanFeedbackTemplate').value.trim(),
         buttonMap: buttonMap
       };
 

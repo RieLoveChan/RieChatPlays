@@ -83,6 +83,21 @@ const DEFAULT_CONFIG = {
   democracyVoteSeconds: 15,
   sendChatFeedback: true,
   activeConsole: "nes", // nes, gb
+  forbiddenFeedbackTemplate: "@{username}, the combination \"{command}\" is blocked on {game} to prevent game resets!",
+  forbiddenCooldownSeconds: 15,
+  forbiddenBanEnabled: true,
+  forbiddenBanThreshold: 3,
+  forbiddenBanWindowSeconds: 60,
+  forbiddenBanDurationSeconds: 300,
+  forbiddenBanFeedbackTemplate: "@{username} has been temporarily banned from playing for {duration} seconds for repeatedly entering forbidden buttons!",
+  forbiddenCombinations: {
+    nes: [["Select", "Start"]],
+    gb: [["Select", "Start"]],
+    snes: [["Select", "Start"]],
+    gba: [["Select", "Start"]],
+    genesis: [],
+    n64: []
+  },
   inputPrefix: "",
   inputSuffix: "",
   partialPrefixMatch: false,
@@ -386,7 +401,16 @@ function saveConfig(newConfig) {
       n64: { ...(config.buttonMap ? config.buttonMap.n64 : DEFAULT_CONFIG.buttonMap.n64), ...newConfig.buttonMap.n64 }
     } : (config.buttonMap || DEFAULT_CONFIG.buttonMap);
 
-    config = { ...config, ...newConfig, buttonMap: mergedButtonMap };
+    const mergedForbiddenCombinations = newConfig.forbiddenCombinations ? {
+      nes: newConfig.forbiddenCombinations.nes || (config.forbiddenCombinations ? config.forbiddenCombinations.nes : DEFAULT_CONFIG.forbiddenCombinations.nes),
+      gb: newConfig.forbiddenCombinations.gb || (config.forbiddenCombinations ? config.forbiddenCombinations.gb : DEFAULT_CONFIG.forbiddenCombinations.gb),
+      snes: newConfig.forbiddenCombinations.snes || (config.forbiddenCombinations ? config.forbiddenCombinations.snes : DEFAULT_CONFIG.forbiddenCombinations.snes),
+      gba: newConfig.forbiddenCombinations.gba || (config.forbiddenCombinations ? config.forbiddenCombinations.gba : DEFAULT_CONFIG.forbiddenCombinations.gba),
+      genesis: newConfig.forbiddenCombinations.genesis || (config.forbiddenCombinations ? config.forbiddenCombinations.genesis : DEFAULT_CONFIG.forbiddenCombinations.genesis),
+      n64: newConfig.forbiddenCombinations.n64 || (config.forbiddenCombinations ? config.forbiddenCombinations.n64 : DEFAULT_CONFIG.forbiddenCombinations.n64)
+    } : (config.forbiddenCombinations || DEFAULT_CONFIG.forbiddenCombinations);
+
+    config = { ...config, ...newConfig, buttonMap: mergedButtonMap, forbiddenCombinations: mergedForbiddenCombinations };
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
     console.log('Configuration saved to disk.');
     rebuildActiveButtonMap();
@@ -614,6 +638,10 @@ function startDemocracyLoop() {
           
           const parsed = parseCommandText(baseCommand);
           if (parsed) {
+            if (isForbiddenCombination(parsed.buttons, config.activeConsole)) {
+              console.warn(`[DEMOCRACY FILTER] Blocked forbidden combination: ${parsed.rawCommand} from winning vote: "${winner}"`);
+              continue;
+            }
             for (let i = 0; i < multiplier; i++) {
               if (cap > 0 && totalPresses >= cap) {
                 break;
@@ -803,10 +831,34 @@ function isUserAdmin(tags, username) {
   return admins.includes(user);
 }
 
+function isForbiddenCombination(buttons, system) {
+  const forbidden = config.forbiddenCombinations && config.forbiddenCombinations[system];
+  if (!forbidden) return false;
+  for (const combo of forbidden) {
+    if (combo.every(btn => buttons[btn])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function formatFeedbackMessage(template, params) {
+  let msg = template;
+  for (const [key, val] of Object.entries(params)) {
+    msg = msg.replace(new RegExp(`{${key}}`, 'gi'), val || '');
+  }
+  return msg;
+}
+
+const forbiddenFeedbackCooldowns = new Map();
+const forbiddenAttempts = new Map();
+const forbiddenBans = new Map();
+
 // Reusable Twitch Chat Message Handler
-function handleChatMessage(username, message, badges = {}) {
+function handleChatMessage(username, message, badges = {}, userId = null) {
   const cleanMessage = message.trim();
   const tags = { username, badges, mod: badges.mod === '1' || badges.moderator === '1' };
+  const resolvedUserId = userId || username.toLowerCase();
 
   // 1. Process Admin Commands
   if (isUserAdmin(tags, username)) {
@@ -815,10 +867,17 @@ function handleChatMessage(username, message, badges = {}) {
     }
   }
 
+  // Check if the user is currently banned (admins are immune)
+  const now = Date.now();
+  const banExpiration = forbiddenBans.get(resolvedUserId) || 0;
+  if (now < banExpiration) {
+    // Banned troll - drop message silently
+    return;
+  }
+
   if (isPaused) return;
 
   // 2. Cooldown Checks for General Inputs
-  const now = Date.now();
   const lastPress = userCooldowns.get(username) || 0;
   const cdMs = (config.userCooldownSeconds || 0) * 1000;
   
@@ -899,6 +958,58 @@ function handleChatMessage(username, message, badges = {}) {
     
     const parsed = parseCommandText(baseCommand);
     if (parsed) {
+      // Check if this part is a forbidden combination
+      if (isForbiddenCombination(parsed.buttons, config.activeConsole)) {
+        console.warn(`[INPUT FILTER] Blocked forbidden combination: ${parsed.rawCommand} by @${username} (ROM: ${bizhawkGameName || "Unknown"})`);
+        
+        // --- Troll Prevention & Banning Logic ---
+        if (config.forbiddenBanEnabled && !isUserAdmin(tags, username)) {
+          let attempts = forbiddenAttempts.get(resolvedUserId) || [];
+          attempts = attempts.filter(t => now - t <= (config.forbiddenBanWindowSeconds || 60) * 1000);
+          attempts.push(now);
+          forbiddenAttempts.set(resolvedUserId, attempts);
+
+          if (attempts.length >= (config.forbiddenBanThreshold || 3)) {
+            // Ban the user
+            const durationSec = config.forbiddenBanDurationSeconds || 300;
+            const banEnd = now + (durationSec * 1000);
+            forbiddenBans.set(resolvedUserId, banEnd);
+            console.warn(`[INPUT FILTER] User @${username} (ID: ${resolvedUserId}) banned for ${durationSec} seconds due to repeated forbidden inputs.`);
+            
+            if (config.sendChatFeedback) {
+              const template = config.forbiddenBanFeedbackTemplate || "@{username} has been temporarily banned from playing for {duration} seconds for repeatedly entering forbidden buttons!";
+              const banMessage = formatFeedbackMessage(template, {
+                username: username,
+                duration: durationSec,
+                game: bizhawkGameName || "Unknown Game",
+                time: new Date().toLocaleTimeString()
+              });
+              sendFeedbackToTwitch(banMessage);
+            }
+            continue; // Skip command
+          }
+        }
+
+        // Apply feedback message cooldown
+        const lastFeedback = forbiddenFeedbackCooldowns.get(resolvedUserId) || 0;
+        const cooldownMs = (config.forbiddenCooldownSeconds || 15) * 1000;
+
+        if (now - lastFeedback >= cooldownMs) {
+          forbiddenFeedbackCooldowns.set(resolvedUserId, now);
+          if (config.sendChatFeedback) {
+            const template = config.forbiddenFeedbackTemplate || "@{username}, the combination \"{command}\" is blocked on {game} to prevent game resets!";
+            const feedbackText = formatFeedbackMessage(template, {
+              username: username,
+              command: parsed.rawCommand,
+              game: bizhawkGameName || "Unknown Game",
+              time: new Date().toLocaleTimeString()
+            });
+            sendFeedbackToTwitch(feedbackText);
+          }
+        }
+        continue; // Skip this forbidden part and continue checking subsequent parts
+      }
+
       for (let i = 0; i < multiplier; i++) {
         if (cap > 0 && totalPresses >= cap) {
           break;
@@ -917,8 +1028,9 @@ function handleChatMessage(username, message, badges = {}) {
     userCooldowns.set(username, now);
     
     if (config.queueMode === 'democracy') {
-      democracyVotes[commandToParse] = (democracyVotes[commandToParse] || 0) + 1;
-      registerStat(username, commandToParse);
+      const democracyText = parsedSequence.map(p => p.rawCommand).join(' ');
+      democracyVotes[democracyText] = (democracyVotes[democracyText] || 0) + 1;
+      registerStat(username, democracyText);
       
       broadcast('queue_updated', getQueueState());
       broadcast('chat_message', { user: username, message: cleanMessage, badge: badges, isCommand: true });
@@ -936,7 +1048,7 @@ function handleChatMessage(username, message, badges = {}) {
       broadcast('chat_message', { user: username, message: cleanMessage, badge: badges, isCommand: true });
     }
   } else {
-    // Not a game command, just broadcast as standard chat message to dashboard
+    // Not a game command or fully filtered, just broadcast as standard chat message to dashboard
     broadcast('chat_message', { user: username, message: cleanMessage, badge: badges, isCommand: false });
   }
 }
@@ -991,7 +1103,8 @@ function initTwitch() {
     twitchClient.on('message', (channel, tags, message, self) => {
       if (self) return; // Skip bot's own messages
       const username = tags.username || 'anonymous';
-      handleChatMessage(username, message, tags.badges || {});
+      const userId = tags['user-id'] || username.toLowerCase();
+      handleChatMessage(username, message, tags.badges || {}, userId);
     });
 
     twitchClient.on('connected', (addr, port) => {
@@ -1093,14 +1206,14 @@ app.post('/api/admin', (req, res) => {
 
 // POST mock chat command for simulation & testing
 app.post('/api/mock_chat', (req, res) => {
-  const { user, message, badges } = req.body;
+  const { user, message, badges, userId } = req.body;
   
   if (!user || !message) {
     return res.status(400).json({ success: false, message: 'Missing user or message parameter.' });
   }
   
   console.log(`Local Mock Chat injection by @${user}: ${message}`);
-  handleChatMessage(user, message, badges || {});
+  handleChatMessage(user, message, badges || {}, userId || user.toLowerCase());
   
   res.json({ success: true, message: 'Mock chat injected successfully.' });
 });
