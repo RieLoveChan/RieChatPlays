@@ -419,6 +419,35 @@
         </div>
       </div>
 
+      <!-- Card 2.7: Auto-Pause Configurations -->
+      <div class="glass-card">
+        <div class="card-title">
+          <i data-lucide="pause-circle"></i>
+          <h2>Auto-Pause Settings</h2>
+        </div>
+
+        <div class="toggle-wrapper" style="margin-bottom: 1rem;">
+          <div class="slider-info">
+            <span>Enable Auto-Pause</span>
+            <span>Pause emulator automatically when no chat inputs are received</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoPauseEnabled" onchange="togglePauseFields(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div id="autopause-fields-container" style="transition: opacity 0.3s ease;">
+          <div class="form-group">
+            <label for="autoPauseSeconds">Inactivity Timeout (Seconds)</label>
+            <div class="input-wrapper">
+              <i data-lucide="timer"></i>
+              <input type="number" id="autoPauseSeconds" min="1" step="1" placeholder="e.g., 30">
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Card 3: NES Controller Mappings -->
       <div class="glass-card" style="grid-column: span 1;">
         <div class="card-title">
@@ -957,6 +986,21 @@
       }
     };
 
+    // Helper to dynamically enable/disable and visually fade auto-pause inputs
+    window.togglePauseFields = function(enabled) {
+      const container = document.getElementById('autopause-fields-container');
+      if (!container) return;
+      if (enabled) {
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+        document.getElementById('autoPauseSeconds').disabled = false;
+      } else {
+        container.style.opacity = '0.4';
+        container.style.pointerEvents = 'none';
+        document.getElementById('autoPauseSeconds').disabled = true;
+      }
+    };
+
     // Populate Settings UI Form
     function updateConfigForm(cfg) {
       document.getElementById('channelName').value = cfg.channelName || "";
@@ -994,6 +1038,13 @@
       
       // Apply correct toggle layout
       window.toggleClearConsoleFields(cfg.autoClearConsoleEnabled !== false);
+
+      // Auto-Pause Settings
+      document.getElementById('autoPauseEnabled').checked = cfg.autoPauseEnabled || false;
+      document.getElementById('autoPauseSeconds').value = cfg.autoPauseSeconds || 30;
+
+      // Apply correct toggle layout
+      window.togglePauseFields(cfg.autoPauseEnabled || false);
 
       // Populate dynamic mappings
       const consoles = ['nes', 'gb', 'snes', 'gba', 'genesis', 'n64'];
@@ -1074,6 +1125,8 @@
         autoSaveStateSuffix: document.getElementById('autoSaveStateSuffix').value.trim(),
         autoClearConsoleEnabled: document.getElementById('autoClearConsoleEnabled').checked,
         autoClearConsoleInterval: parseInt(document.getElementById('autoClearConsoleInterval').value, 10) || 15,
+        autoPauseEnabled: document.getElementById('autoPauseEnabled').checked,
+        autoPauseSeconds: parseInt(document.getElementById('autoPauseSeconds').value, 10) || 30,
         buttonMap: buttonMap
       };
 

@@ -93,6 +93,8 @@ const DEFAULT_CONFIG = {
   autoSaveStateSuffix: "",
   autoClearConsoleEnabled: true,
   autoClearConsoleInterval: 15,
+  autoPauseEnabled: false,
+  autoPauseSeconds: 30,
   buttonMap: {
     nes: {
       'Up': 'up, u',
@@ -1173,6 +1175,10 @@ app.get('/api/poll', (req, res) => {
     pendingClearConsole = false;
     console.log(`[POLL COMMAND] Dispatched clearConsole instruction to BizHawk`);
   }
+
+  // Inject autoPause configuration
+  responseData.autoPauseEnabled = config.autoPauseEnabled || false;
+  responseData.autoPauseSeconds = parseInt(config.autoPauseSeconds, 10) || 0;
 
   return res.json(responseData);
 });

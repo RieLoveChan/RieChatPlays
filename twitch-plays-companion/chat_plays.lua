@@ -158,6 +158,12 @@ local activeButtons = {}
 local activeReleaseFrames = 4
 
 local localQueue = {}
+
+-- Auto-Pause State variables
+local autoPauseEnabled = false
+local autoPauseSeconds = 0
+local last_input_time = os.clock()
+local last_paused_poll_time = 0
 local currentEmptyPollCooldown = BASE_POLL_COOLDOWN
 
 local pendingTask = nil
@@ -307,6 +313,19 @@ local function popNextLocalCommand()
   end
 end
 
+-- Helper to process auto-pause configuration from JSON payload
+local function processAutoPauseConfig(json)
+  if not json or json == "" or json == "{}" then return end
+  local pauseEnabled = json:match('"autoPauseEnabled"%s*:%s*(%a+)')
+  if pauseEnabled then
+    autoPauseEnabled = (pauseEnabled == "true")
+  end
+  local pauseSecs = json:match('"autoPauseSeconds"%s*:%s*(%d+)')
+  if pauseSecs then
+    autoPauseSeconds = tonumber(pauseSecs) or 0
+  end
+end
+
 -- Process auto-clear console commands from JSON payload
 local function processClearConsoleFromJson(json)
   if not json or json == "" or json == "{}" then return end
@@ -319,6 +338,7 @@ end
 
 -- Helper to process a JSON poll response containing multiple commands
 local function handlePollResult(json)
+  processAutoPauseConfig(json)
   processSaveStateFromJson(json)
   processClearConsoleFromJson(json)
   
@@ -415,58 +435,48 @@ while true do
   -- Draw Streamer HUD (Delegated to drawHUD hook)
   drawHUD()
 
-  -- Check Server Cooldown Timer
-  if serverOfflineTimer > 0 then
-    serverOfflineTimer = serverOfflineTimer - 1
+  -- Check inactivity and pause if enabled
+  if state == STATE_PRESS or state == STATE_RELEASE or #localQueue > 0 then
+    last_input_time = os.clock()
+  else
+    if autoPauseEnabled and autoPauseSeconds > 0 and not client.ispaused() then
+      if os.clock() - last_input_time > autoPauseSeconds then
+        client.pause()
+        print("[SYSTEM] Inactivity timeout reached (" .. autoPauseSeconds .. "s). Pausing emulator.")
+      end
+    end
   end
 
-  if pollCooldown > 0 then
-    pollCooldown = pollCooldown - 1
-  end
-
-  -- STATE MACHINE
-  if state == STATE_PRESS then
-    framesLeft = framesLeft - 1
-    
-    if framesLeft <= 0 then
-      state = STATE_RELEASE
-      framesLeft = activeReleaseFrames or 4
+  if client.ispaused() then
+    -- While paused, we only poll the server and yield.
+    -- Decrement timers based on yield iterations.
+    if pollCooldown > 0 then
+      pollCooldown = pollCooldown - 1
+    end
+    if serverOfflineTimer > 0 then
+      serverOfflineTimer = serverOfflineTimer - 1
     end
 
-  elseif state == STATE_RELEASE then
-    -- Gap phase: clear controls to allow consecutive tap registrations
-    framesLeft = framesLeft - 1
-    
-    if framesLeft <= 0 then
-      state = STATE_IDLE
-    end
-
-  elseif state == STATE_IDLE then
-    -- Ready to process next command
-    if #localQueue > 0 then
-      popNextLocalCommand()
-    else
-      if not pendingTask and pollCooldown <= 0 and serverOfflineTimer <= 0 then
+    -- Perform polling
+    if not pendingTask and pollCooldown <= 0 and serverOfflineTimer <= 0 then
+      local now = os.clock()
+      if now - last_paused_poll_time >= 0.5 then
+        last_paused_poll_time = now
+        
         if http_client_available then
-          -- Method 1: Async HttpClient Polling
           local ok, err = pcall(function()
             pendingTask = http:GetStringAsync(POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName()))
           end)
-          
           if not ok then
             print("Polling dispatch error: " .. tostring(err))
             serverOnline = false
             serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
           end
         else
-          -- Method 2: Synchronous HttpWebRequest Polling (Safe with 150ms timeout)
+          -- Synchronous request
           emptyPollLogTimer = emptyPollLogTimer + 1
-          local shouldLog = false
-          if emptyPollLogTimer >= 300 then
-            emptyPollLogTimer = 0
-            shouldLog = true
-            print("[POLL DIAL] Dispatching synchronous HTTP poll request to: " .. POLL_URL)
-          end
+          local shouldLog = (emptyPollLogTimer >= 10)
+          if shouldLog then emptyPollLogTimer = 0 end
           
           local json, err = makeWebRequestSync()
           if json then
@@ -476,14 +486,17 @@ while true do
             end
             serverOnline = true
             if json ~= "" and json ~= "{}" then
-              print("[POLL] HTTP request returned raw JSON: " .. json)
+              processAutoPauseConfig(json)
+              local commands_part = json:match('"commands"%s*:%s*%[(.-)%]')
+              if commands_part and commands_part ~= "" then
+                client.unpause()
+                print("[SYSTEM] Input detected! Unpausing emulator.")
+                last_input_time = os.clock()
+              end
               handlePollResult(json)
             else
-              if shouldLog then
-                print("[POLL] Received empty payload (server input queue is empty).")
-              end
-              pollCooldown = currentEmptyPollCooldown
-              currentEmptyPollCooldown = math.min(MAX_POLL_COOLDOWN, currentEmptyPollCooldown + POLL_COOLDOWN_STEP)
+              -- Empty payload
+              pollCooldown = 10
             end
           else
             if serverOnline or not serverOfflineLogged then
@@ -491,51 +504,168 @@ while true do
               serverOfflineLogged = true
             end
             serverOnline = false
-            serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
+            serverOfflineTimer = 60
           end
         end
       end
+    end
 
-      -- Process Completed Tasks (Async only)
-      if http_client_available and pendingTask then
-        if pendingTask.IsCompleted then
-          local isFaulted = pendingTask.IsFaulted
-          
-          if not isFaulted then
-            local ok, json = pcall(function() return pendingTask.Result end)
-            pendingTask = nil
+    -- Process Completed Tasks (Async only)
+    if http_client_available and pendingTask then
+      if pendingTask.IsCompleted then
+        local isFaulted = pendingTask.IsFaulted
+        if not isFaulted then
+          local ok, json = pcall(function() return pendingTask.Result end)
+          pendingTask = nil
+          if ok and json then
+            if not serverOnline then
+              print("[POLL] Companion server connected successfully!")
+              serverOfflineLogged = false
+            end
+            serverOnline = true
+            if json ~= "" and json ~= "{}" then
+              processAutoPauseConfig(json)
+              local commands_part = json:match('"commands"%s*:%s*%[(.-)%]')
+              if commands_part and commands_part ~= "" then
+                client.unpause()
+                print("[SYSTEM] Input detected! Unpausing emulator.")
+                last_input_time = os.clock()
+              end
+              handlePollResult(json)
+            else
+              pollCooldown = 10
+            end
+          else
+            pollCooldown = 10
+          end
+        else
+          serverOnline = false
+          pendingTask = nil
+          serverOfflineTimer = 60
+        end
+      end
+    end
 
-            if ok and json then
+    -- Yield to BizHawk UI
+    emu.yield()
+
+  else
+    -- NORMAL UNPAUSED FRAME ADVANCE LOOP
+    
+    -- Check Server Cooldown Timer
+    if serverOfflineTimer > 0 then
+      serverOfflineTimer = serverOfflineTimer - 1
+    end
+
+    if pollCooldown > 0 then
+      pollCooldown = pollCooldown - 1
+    end
+
+    -- STATE MACHINE
+    if state == STATE_PRESS then
+      framesLeft = framesLeft - 1
+      if framesLeft <= 0 then
+        state = STATE_RELEASE
+        framesLeft = activeReleaseFrames or 4
+      end
+
+    elseif state == STATE_RELEASE then
+      framesLeft = framesLeft - 1
+      if framesLeft <= 0 then
+        state = STATE_IDLE
+      end
+
+    elseif state == STATE_IDLE then
+      if #localQueue > 0 then
+        popNextLocalCommand()
+      else
+        if not pendingTask and pollCooldown <= 0 and serverOfflineTimer <= 0 then
+          if http_client_available then
+            local ok, err = pcall(function()
+              pendingTask = http:GetStringAsync(POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName()))
+            end)
+            if not ok then
+              print("Polling dispatch error: " .. tostring(err))
+              serverOnline = false
+              serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
+            end
+          else
+            emptyPollLogTimer = emptyPollLogTimer + 1
+            local shouldLog = (emptyPollLogTimer >= 300)
+            if shouldLog then
+              emptyPollLogTimer = 0
+              print("[POLL DIAL] Dispatching synchronous HTTP poll request to: " .. POLL_URL)
+            end
+            
+            local json, err = makeWebRequestSync()
+            if json then
               if not serverOnline then
                 print("[POLL] Companion server connected successfully!")
                 serverOfflineLogged = false
               end
               serverOnline = true
               if json ~= "" and json ~= "{}" then
-                print("[POLL] Async HTTP returned raw JSON: " .. json)
+                print("[POLL] HTTP request returned raw JSON: " .. json)
+                processAutoPauseConfig(json)
                 handlePollResult(json)
+              else
+                if shouldLog then
+                  print("[POLL] Received empty payload (server input queue is empty).")
+                end
+                pollCooldown = currentEmptyPollCooldown
+                currentEmptyPollCooldown = math.min(MAX_POLL_COOLDOWN, currentEmptyPollCooldown + POLL_COOLDOWN_STEP)
+              end
+            else
+              if serverOnline or not serverOfflineLogged then
+                print("[POLL] Companion server is offline. Will automatically reconnect when started.")
+                serverOfflineLogged = true
+              end
+              serverOnline = false
+              serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
+            end
+          end
+        end
+
+        -- Process Completed Tasks (Async only)
+        if http_client_available and pendingTask then
+          if pendingTask.IsCompleted then
+            local isFaulted = pendingTask.IsFaulted
+            if not isFaulted then
+              local ok, json = pcall(function() return pendingTask.Result end)
+              pendingTask = nil
+              if ok and json then
+                if not serverOnline then
+                  print("[POLL] Companion server connected successfully!")
+                  serverOfflineLogged = false
+                end
+                serverOnline = true
+                if json ~= "" and json ~= "{}" then
+                  print("[POLL] Async HTTP returned raw JSON: " .. json)
+                  processAutoPauseConfig(json)
+                  handlePollResult(json)
+                else
+                  pollCooldown = currentEmptyPollCooldown
+                  currentEmptyPollCooldown = math.min(MAX_POLL_COOLDOWN, currentEmptyPollCooldown + POLL_COOLDOWN_STEP)
+                end
               else
                 pollCooldown = currentEmptyPollCooldown
                 currentEmptyPollCooldown = math.min(MAX_POLL_COOLDOWN, currentEmptyPollCooldown + POLL_COOLDOWN_STEP)
               end
             else
-              pollCooldown = currentEmptyPollCooldown
-              currentEmptyPollCooldown = math.min(MAX_POLL_COOLDOWN, currentEmptyPollCooldown + POLL_COOLDOWN_STEP)
+              if serverOnline or not serverOfflineLogged then
+                print("[POLL] Companion server is offline. Will automatically reconnect when started.")
+                serverOfflineLogged = true
+              end
+              serverOnline = false
+              pendingTask = nil
+              serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
             end
-          else
-            if serverOnline or not serverOfflineLogged then
-              print("[POLL] Companion server is offline. Will automatically reconnect when started.")
-              serverOfflineLogged = true
-            end
-            serverOnline = false
-            pendingTask = nil
-            serverOfflineTimer = OFFLINE_RETRY_COOLDOWN
           end
         end
       end
     end
-  end
 
-  -- Advance emulation by exactly one frame
-  emu.frameadvance()
+    -- Advance emulation by exactly one frame
+    emu.frameadvance()
+  end
 end
