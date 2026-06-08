@@ -6,6 +6,28 @@ console.clear()
 -- Save the original console print function
 local original_print = print
 
+-- Import DateTime from System via luanet if available
+local DateTime = nil
+pcall(function()
+  luanet.load_assembly("System")
+  DateTime = luanet.import_type("System.DateTime")
+end)
+
+-- Helper to format timestamp in YYYYMMDD HHSSsss format
+local function get_timestamp()
+  local ms = math.floor((os.clock() % 1) * 1000)
+  if DateTime then
+    local ok, res = pcall(function()
+      return DateTime.Now:ToString("yyyyMMdd HHssfff")
+    end)
+    if ok and res then
+      return res
+    end
+  end
+  -- Fallback to pure Lua
+  return os.date("%Y%m%d %H%S") .. string.format("%03d", ms)
+end
+
 -- Determine script directory path
 local script_path = debug.getinfo(1).source:match("@?(.*[\\/])") or ""
 -- Ensure logs directory exists (silent mkdir command for Windows)
@@ -46,18 +68,7 @@ else
   original_print("[WARNING] Could not open log file: " .. tostring(err))
 end
 
--- Helper to check if a message is an error or warning (case-insensitive search)
-local function is_warning_or_error(msg)
-  local lower_msg = msg:lower()
-  return lower_msg:find("warning") or 
-         lower_msg:find("error") or 
-         lower_msg:find("fail") or 
-         lower_msg:find("critical") or 
-         lower_msg:find("offline") or 
-         lower_msg:find("disconnect")
-end
-
--- Override global print to only output and log warnings/errors
+-- Override global print to log all messages with timestamps (but do not print to BizHawk Lua Console)
 print = function(...)
   local args = {...}
   for i = 1, #args do
@@ -65,15 +76,13 @@ print = function(...)
   end
   local message = table.concat(args, "\t")
   
-  if is_warning_or_error(message) then
-    -- Print to BizHawk Lua Console
-    original_print(message)
-    
-    -- Write to log file if open
-    if log_file then
-      log_file:write(message .. "\n")
-      log_file:flush()
-    end
+  local timestamp = get_timestamp()
+  local formatted_message = "[" .. timestamp .. "] " .. message
+  
+  -- Write to log file if open
+  if log_file then
+    log_file:write(formatted_message .. "\n")
+    log_file:flush()
   end
 end
 
