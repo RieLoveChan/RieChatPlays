@@ -236,6 +236,17 @@
         </div>
 
         <div class="form-group">
+          <label for="connectFeedbackTemplate">Bot Connected Chat Template</label>
+          <div class="input-wrapper">
+            <i data-lucide="message-square"></i>
+            <input type="text" id="connectFeedbackTemplate" placeholder="e.g., Twitch Plays Bot is ONLINE!">
+          </div>
+          <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+            Supports placeholders: <code>{channel}</code>, <code>{game}</code>, <code>{time}</code>
+          </p>
+        </div>
+
+        <div class="form-group">
           <label for="activeConsole">Active Console System</label>
           <div class="input-wrapper" style="display:block;">
             <i data-lucide="monitor" style="top:12px;"></i>
@@ -368,19 +379,14 @@
 
         <div id="savestate-fields-container" style="transition: opacity 0.3s ease;">
           <div class="form-group">
-            <label for="autoSaveStateInterval">Save Interval</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-              <div class="input-wrapper" style="flex-grow: 1; margin-bottom: 0;">
-                <i data-lucide="timer"></i>
-                <input type="number" id="autoSaveStateInterval" min="1" step="1" placeholder="e.g., 15">
-              </div>
-              <div class="input-wrapper" style="width: 120px; margin-bottom: 0; display: block;">
-                <select id="autoSaveStateUnit" style="padding-left: 10px; height: 100%;">
-                  <option value="minutes">Minutes</option>
-                  <option value="hours">Hours</option>
-                </select>
-              </div>
+            <label for="autoSaveStateInterval">Save Interval (Frames)</label>
+            <div class="input-wrapper">
+              <i data-lucide="timer"></i>
+              <input type="number" id="autoSaveStateInterval" min="1" step="1" placeholder="e.g., 36000">
             </div>
+            <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+              Specify interval in emulator frames (e.g., 36000 frames is exactly 10 minutes at 60 FPS).
+            </p>
           </div>
 
           <div class="form-group" id="autoSaveStateSuffixGroup" style="margin-top: 1rem;">
@@ -532,6 +538,28 @@
               Twitch announcement chat template. Supports: <code>{username}</code>, <code>{duration}</code>
             </p>
           </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+          <label for="bannedUsers">Manually Banned Users <span style="font-size:0.65rem;color:var(--text-muted)">(Comma separated)</span></label>
+          <div class="input-wrapper">
+            <i data-lucide="ban"></i>
+            <input type="text" id="bannedUsers" placeholder="e.g., troll1, troll2">
+          </div>
+          <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+            A list of usernames whose inputs will be ignored completely.
+          </p>
+        </div>
+
+        <div class="toggle-wrapper" style="margin-top: 1rem;">
+          <div class="slider-info">
+            <span>Silence Banned Chat Feedback</span>
+            <span>Do not send any chat feedback to banned or temporarily restricted users</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="silenceBannedFeedback">
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </div>
 
@@ -1047,13 +1075,11 @@
         container.style.opacity = '1';
         container.style.pointerEvents = 'auto';
         document.getElementById('autoSaveStateInterval').disabled = false;
-        document.getElementById('autoSaveStateUnit').disabled = false;
         document.getElementById('autoSaveStateSuffix').disabled = false;
       } else {
         container.style.opacity = '0.4';
         container.style.pointerEvents = 'none';
         document.getElementById('autoSaveStateInterval').disabled = true;
-        document.getElementById('autoSaveStateUnit').disabled = true;
         document.getElementById('autoSaveStateSuffix').disabled = true;
       }
     };
@@ -1115,6 +1141,7 @@
       document.getElementById('botUsername').value = cfg.botUsername || "";
       document.getElementById('twitchOAuthToken').value = cfg.twitchOAuthToken || "";
       document.getElementById('adminUsers').value = (cfg.adminUsers || []).join(', ');
+      document.getElementById('connectFeedbackTemplate').value = cfg.connectFeedbackTemplate || "";
       document.getElementById('activeConsole').value = cfg.activeConsole || "nes";
       
       // Sliders changed to number inputs
@@ -1134,8 +1161,7 @@
 
       // Auto-SaveState Settings
       document.getElementById('autoSaveStateEnabled').checked = cfg.autoSaveStateEnabled || false;
-      document.getElementById('autoSaveStateInterval').value = cfg.autoSaveStateInterval || 15;
-      document.getElementById('autoSaveStateUnit').value = cfg.autoSaveStateUnit || "minutes";
+      document.getElementById('autoSaveStateInterval').value = cfg.autoSaveStateInterval || 36000;
       document.getElementById('autoSaveStateSuffix').value = cfg.autoSaveStateSuffix || "";
       
       // Apply correct toggle layout
@@ -1162,6 +1188,8 @@
       document.getElementById('forbiddenBanWindowSeconds').value = cfg.forbiddenBanWindowSeconds !== undefined ? cfg.forbiddenBanWindowSeconds : 60;
       document.getElementById('forbiddenBanDurationSeconds').value = cfg.forbiddenBanDurationSeconds !== undefined ? cfg.forbiddenBanDurationSeconds : 300;
       document.getElementById('forbiddenBanFeedbackTemplate').value = cfg.forbiddenBanFeedbackTemplate || "";
+      document.getElementById('bannedUsers').value = (cfg.bannedUsers || []).join(', ');
+      document.getElementById('silenceBannedFeedback').checked = cfg.silenceBannedFeedback || false;
 
       // Apply correct toggle layout
       window.toggleForbiddenBanFields(cfg.forbiddenBanEnabled || false);
@@ -1198,6 +1226,9 @@
       const adminUsersStr = document.getElementById('adminUsers').value;
       const adminUsers = adminUsersStr.split(',').map(s => s.trim()).filter(Boolean);
 
+      const bannedUsersStr = document.getElementById('bannedUsers').value;
+      const bannedUsers = bannedUsersStr.split(',').map(s => s.trim()).filter(Boolean);
+
       // Construct dynamic mapping configuration payload
       const buttonMap = {
         nes: {},
@@ -1229,6 +1260,7 @@
         botUsername: document.getElementById('botUsername').value.trim(),
         twitchOAuthToken: document.getElementById('twitchOAuthToken').value.trim(),
         adminUsers: adminUsers,
+        connectFeedbackTemplate: document.getElementById('connectFeedbackTemplate').value.trim(),
         activeConsole: document.getElementById('activeConsole').value,
         holdFrames: parseInt(document.getElementById('holdFrames').value, 10) || 8,
         releaseFrames: parseInt(document.getElementById('releaseFrames').value, 10) || 4,
@@ -1241,8 +1273,7 @@
         inputSuffix: document.getElementById('inputSuffix').value.trim(),
         partialPrefixMatch: document.getElementById('partialPrefixMatch').checked,
         autoSaveStateEnabled: document.getElementById('autoSaveStateEnabled').checked,
-        autoSaveStateInterval: parseInt(document.getElementById('autoSaveStateInterval').value, 10) || 15,
-        autoSaveStateUnit: document.getElementById('autoSaveStateUnit').value,
+        autoSaveStateInterval: parseInt(document.getElementById('autoSaveStateInterval').value, 10) || 36000,
         autoSaveStateSuffix: document.getElementById('autoSaveStateSuffix').value.trim(),
         autoClearConsoleEnabled: document.getElementById('autoClearConsoleEnabled').checked,
         autoClearConsoleInterval: parseInt(document.getElementById('autoClearConsoleInterval').value, 10) || 15,
@@ -1254,6 +1285,8 @@
         forbiddenBanWindowSeconds: parseInt(document.getElementById('forbiddenBanWindowSeconds').value, 10) || 60,
         forbiddenBanDurationSeconds: parseInt(document.getElementById('forbiddenBanDurationSeconds').value, 10) || 300,
         forbiddenBanFeedbackTemplate: document.getElementById('forbiddenBanFeedbackTemplate').value.trim(),
+        bannedUsers: bannedUsers,
+        silenceBannedFeedback: document.getElementById('silenceBannedFeedback').checked,
         buttonMap: buttonMap
       };
 

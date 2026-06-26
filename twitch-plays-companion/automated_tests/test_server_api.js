@@ -53,8 +53,8 @@ async function runTests() {
     }
   });
 
-  // Wait 1.5 seconds for server boot-up
-  await sleep(1500);
+  // Wait 3.0 seconds for server boot-up
+  await sleep(3000);
   console.log('✔ Server started successfully.');
 
   try {
@@ -339,11 +339,10 @@ async function runTests() {
     const autoSaveConfig = {
       ...newConfig,
       autoSaveStateEnabled: true,
-      autoSaveStateInterval: 1,
-      autoSaveStateUnit: 'minutes',
+      autoSaveStateInterval: 36000,
       autoSaveStateSuffix: 'test_fallback'
     };
-    console.log('- Enabling Auto-SaveState with interval 1 minute and suffix "test_fallback"...');
+    console.log('- Enabling Auto-SaveState with interval 36000 frames and suffix "test_fallback"...');
     const autoSaveRes = await makeRequest('/api/config', 'POST', autoSaveConfig);
     if (!autoSaveRes.success || !autoSaveRes.config.autoSaveStateEnabled || autoSaveRes.config.autoSaveStateSuffix !== 'test_fallback') {
       throw new Error('Auto-SaveState configurations failed to save!');
@@ -370,6 +369,37 @@ async function runTests() {
     }
     
     console.log('✔ Auto-SaveState API and status updates verified successfully!');
+
+    // 10. Test Banned Users and Silence Banned Feedback Configuration
+    console.log('\n[TEST 10] Testing Banned Users filtering and Silence Feedback configuration...');
+    
+    // Add banned user and enable silence toggle
+    const banTestConfig = {
+      ...newConfig,
+      bannedUsers: ['TrollUser123'],
+      silenceBannedFeedback: true
+    };
+    const updateResultForBan = await makeRequest('/api/config', 'POST', banTestConfig);
+    if (!updateResultForBan.success || !updateResultForBan.config.bannedUsers.includes('TrollUser123') || !updateResultForBan.config.silenceBannedFeedback) {
+      throw new Error('Failed to update config settings with banned users / silence feedback toggle!');
+    }
+    
+    // Get initial queue size
+    const initialStatus = await makeRequest('/api/status');
+    const initialQueueSize = initialStatus.queueSize;
+    
+    // Send a message from a banned user (should be ignored)
+    console.log('- Simulating input from banned user @TrollUser123: "up"');
+    await makeRequest('/api/mock_chat', 'POST', { user: 'TrollUser123', message: 'up' });
+    
+    // Verify queue size did not change
+    const postBanStatus = await makeRequest('/api/status');
+    console.log(`✔ Verification status: Queue size is ${postBanStatus.queueSize} (Expected: ${initialQueueSize})`);
+    if (postBanStatus.queueSize !== initialQueueSize) {
+      throw new Error('Message from banned user was not ignored!');
+    }
+
+    console.log('✔ Banned users filtering verified successfully!');
 
     console.log('\n====================================================');
     console.log('   🎉 ALL INTEGRATION TESTS PASSED SUCCESSFULLY!    ');

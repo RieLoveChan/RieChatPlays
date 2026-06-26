@@ -3,6 +3,8 @@
   "botUsername": "NST_Rasis",
   "twitchOAuthToken": "oauth:your_twitch_oauth_token_here",
   "adminUsers": [],
+  "bannedUsers": [],
+  "silenceBannedFeedback": false,
   "adminPrefix": "!play",
   "queueMode": "anarchy",
   "holdFrames": 12,
@@ -12,6 +14,7 @@
   "sendChatFeedback": false,
   "activeConsole": "gb",
   "forbiddenFeedbackTemplate": "@{username}, the combination \"{command}\" is blocked on {game} to prevent game resets!",
+  "connectFeedbackTemplate": "Twitch Plays Companion is ONLINE! Commands are active!",
   "forbiddenCombinations": {
     "nes": [["Select", "Start"]],
     "gb": [["Select", "Start"]],
@@ -21,7 +24,6 @@
     "n64": []
   },
   "autoSaveStateEnabled": false,
-  "autoSaveStateInterval": 15,
-  "autoSaveStateUnit": "minutes",
+  "autoSaveStateInterval": 36000,
   "autoSaveStateSuffix": ""
 }

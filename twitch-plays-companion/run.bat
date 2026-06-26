@@ -1,8 +1,8 @@
 @echo off
 title Twitch Plays Companion Launcher
-echo ===================================================
-echo     TWITCH PLAYS COMPANION LAUNCHER BY ANTIGRAVITY  
-echo ===================================================
+echo =======================================
+echo     TWITCH PLAYS COMPANION LAUNCHER    
+echo =======================================
 echo.
 
 cd /d "%~dp0"
@@ -23,9 +23,9 @@ echo [2/3] Starting web server in a moment...
 echo ✔ Server launching at http://localhost:8080
 echo.
 
-echo [3/3] Launching your Streamer Dashboard...
-start "" "http://localhost:8080"
-echo.
+rem echo [3/3] Launching your Streamer Dashboard...
+rem start "" "http://localhost:8080"
+rem echo.
 
 echo ===================================================
 echo             SERVER LOGS - COMMAND STREAM           

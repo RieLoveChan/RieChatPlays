@@ -75,6 +75,8 @@ const DEFAULT_CONFIG = {
   botUsername: "",
   twitchOAuthToken: "",
   adminUsers: [],
+  bannedUsers: [],
+  silenceBannedFeedback: false,
   adminPrefix: "!",
   queueMode: "anarchy", // anarchy, democracy
   holdFrames: 8,
@@ -84,6 +86,7 @@ const DEFAULT_CONFIG = {
   sendChatFeedback: true,
   activeConsole: "nes", // nes, gb
   forbiddenFeedbackTemplate: "@{username}, the combination \"{command}\" is blocked on {game} to prevent game resets!",
+  connectFeedbackTemplate: "Twitch Plays Companion is ONLINE! Commands are active!",
   forbiddenCooldownSeconds: 15,
   forbiddenBanEnabled: true,
   forbiddenBanThreshold: 3,
@@ -103,8 +106,7 @@ const DEFAULT_CONFIG = {
   partialPrefixMatch: false,
   buttonPressesCap: 0,
   autoSaveStateEnabled: false,
-  autoSaveStateInterval: 15,
-  autoSaveStateUnit: "minutes",
+  autoSaveStateInterval: 36000,
   autoSaveStateSuffix: "",
   autoClearConsoleEnabled: true,
   autoClearConsoleInterval: 15,
@@ -204,6 +206,7 @@ let bizhawkGameName = null;
 let autoSaveStateTimer = null;
 let pendingSaveState = false;
 let nextSaveStatePath = null;
+let lastSavedFrame = null;
 let autoClearConsoleTimer = null;
 let pendingClearConsole = false;
 
@@ -256,30 +259,7 @@ function setupAutoSaveStateTimer() {
     clearInterval(autoSaveStateTimer);
     autoSaveStateTimer = null;
   }
-
-  if (!config.autoSaveStateEnabled) {
-    console.log('Auto-SaveState is currently disabled.');
-    return;
-  }
-
-  const intervalVal = parseInt(config.autoSaveStateInterval, 10);
-  if (isNaN(intervalVal) || intervalVal <= 0) {
-    console.warn(`Auto-SaveState skipped: invalid interval "${config.autoSaveStateInterval}"`);
-    return;
-  }
-
-  const multiplier = config.autoSaveStateUnit === 'hours' ? 60 * 60 * 1000 : 60 * 1000;
-  const ms = intervalVal * multiplier;
-
-  console.log(`Setting up Auto-SaveState timer for every ${intervalVal} ${config.autoSaveStateUnit} (${ms}ms)`);
-
-  autoSaveStateTimer = setInterval(() => {
-    if (isPaused) {
-      console.log('Auto-SaveState skipped because companion emulation controls are paused.');
-      return;
-    }
-    triggerAutoSaveState();
-  }, ms);
+  lastSavedFrame = null;
 }
 
 function triggerAutoSaveState() {
@@ -860,6 +840,12 @@ function handleChatMessage(username, message, badges = {}, userId = null) {
   const tags = { username, badges, mod: badges.mod === '1' || badges.moderator === '1' };
   const resolvedUserId = userId || username.toLowerCase();
 
+  // Check if the user is manually banned (inputs ignored)
+  const manuallyBanned = (config.bannedUsers || []).map(u => u.toLowerCase());
+  if (manuallyBanned.includes(username.toLowerCase())) {
+    return;
+  }
+
   // 1. Process Admin Commands
   if (isUserAdmin(tags, username)) {
     if (processAdminCommand(username, cleanMessage)) {
@@ -976,7 +962,7 @@ function handleChatMessage(username, message, badges = {}, userId = null) {
             forbiddenBans.set(resolvedUserId, banEnd);
             console.warn(`[INPUT FILTER] User @${username} (ID: ${resolvedUserId}) banned for ${durationSec} seconds due to repeated forbidden inputs.`);
             
-            if (config.sendChatFeedback) {
+            if (config.sendChatFeedback && !config.silenceBannedFeedback) {
               const template = config.forbiddenBanFeedbackTemplate || "@{username} has been temporarily banned from playing for {duration} seconds for repeatedly entering forbidden buttons!";
               const banMessage = formatFeedbackMessage(template, {
                 username: username,
@@ -1110,7 +1096,14 @@ function initTwitch() {
     twitchClient.on('connected', (addr, port) => {
       console.log(`Connected to Twitch IRC: ${addr}:${port}`);
       broadcast('status_updated', getServerStatus());
-      sendFeedbackToTwitch(`Twitch Plays Companion is ONLINE! Commands are active!`);
+      
+      const template = config.connectFeedbackTemplate || "Twitch Plays Companion is ONLINE! Commands are active!";
+      const feedbackText = formatFeedbackMessage(template, {
+        channel: config.channelName,
+        game: bizhawkGameName || "Unknown Game",
+        time: new Date().toLocaleTimeString()
+      });
+      sendFeedbackToTwitch(feedbackText);
     });
 
     twitchClient.on('disconnected', (reason) => {
@@ -1237,6 +1230,22 @@ app.get('/api/poll', (req, res) => {
   
   if (isPaused) {
     return res.json({});
+  }
+
+  // Process frame-based savestate
+  const currentFrame = parseInt(req.query.frames, 10);
+  if (!isNaN(currentFrame)) {
+    if (lastSavedFrame === null || currentFrame < lastSavedFrame) {
+      lastSavedFrame = currentFrame;
+    } else if (config.autoSaveStateEnabled) {
+      const intervalVal = parseInt(config.autoSaveStateInterval, 10);
+      if (!isNaN(intervalVal) && intervalVal > 0) {
+        if (currentFrame - lastSavedFrame >= intervalVal) {
+          triggerAutoSaveState();
+          lastSavedFrame = currentFrame;
+        }
+      }
+    }
   }
 
   let responseData = {};

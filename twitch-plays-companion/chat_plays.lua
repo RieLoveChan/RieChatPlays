@@ -367,7 +367,7 @@ end
 local function makeWebRequestSync()
   local json = nil
   local requestOk, requestErr = pcall(function()
-    local url = POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName())
+    local url = POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName()) .. "&frames=" .. emu.framecount()
     local req = HttpWebRequest.Create(url)
     req.Timeout = 150 -- 150 milliseconds timeout
     local resp = req:GetResponse()
@@ -465,7 +465,7 @@ while true do
         
         if http_client_available then
           local ok, err = pcall(function()
-            pendingTask = http:GetStringAsync(POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName()))
+            pendingTask = http:GetStringAsync(POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName()) .. "&frames=" .. emu.framecount())
           end)
           if not ok then
             print("Polling dispatch error: " .. tostring(err))
@@ -582,7 +582,7 @@ while true do
         if not pendingTask and pollCooldown <= 0 and serverOfflineTimer <= 0 then
           if http_client_available then
             local ok, err = pcall(function()
-              pendingTask = http:GetStringAsync(POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName()))
+              pendingTask = http:GetStringAsync(POLL_URL .. "?batch=1&game=" .. urlEncode(getRomName()) .. "&frames=" .. emu.framecount())
             end)
             if not ok then
               print("Polling dispatch error: " .. tostring(err))
